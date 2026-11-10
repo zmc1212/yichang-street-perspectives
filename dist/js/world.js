@@ -1,14 +1,16 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildCbd } from './landmarks/cbd.js';
+import { buildGuomao } from './landmarks/guomao.js';
 
 // Original Yichang street compositions, based on CBD and Guomao reference photos.
 // Building dimensions and the relation between streets are artistic approximations.
 const LOOP = 24000;
 const TAU = Math.PI * 2;
 const palette = {
-  cream:'#e8dbc4', stone:'#c6bda7', warm:'#b88866', coral:'#d86a49', navy:'#234147',
-  glass:'#52838a', mint:'#91b2a5', dark:'#273c3d', pavement:'#d3d1bb', asphalt:'#747e77',
-  yellow:'#e4b657', green:'#607e68', leaf:'#789576', bark:'#756756', steel:'#536665'
+  cream:'#d5d4c9', stone:'#b2b4ac', warm:'#9b806a', coral:'#a76a53', navy:'#293e43',
+  glass:'#536d70', mint:'#79948a', dark:'#303a3c', pavement:'#b9bcb6', asphalt:'#696e72',
+  yellow:'#bdae79', green:'#3e5d45', leaf:'#48694b', bark:'#6e6559', steel:'#65706e'
 };
 const seeded = (n) => { const v = Math.sin(n * 127.1 + 31.7) * 43758.5453; return v - Math.floor(v); };
 
@@ -95,18 +97,6 @@ export function createWorld(id = 'cbd') {
     cyl(.08,.08,4.3,x+w*.35,y+2.4,z-d*.25,palette.steel,6);
     box(1.5,.08,.1,x+w*.35,y+4.2,z-d*.25,palette.steel);
   }
-  function building(x,z,w,d,h,{base=palette.cream,seed=1,glass=false,shop=true,roof=true}={}){
-    box(w,h,d,x,h/2,z,base);
-    const fm=facade(w,h,{cols:Math.max(4,Math.round(w/2.1)),rows:Math.max(4,Math.round(h/3)),seed,base:glass?palette.navy:'#566b68',warm:glass?.32:.12});
-    plane(w-.8,h-4.5,x,(h+3.5)/2,z+d/2+.1,fm);
-    plane(d-.6,h-4.5,x+w/2+.1,(h+3.5)/2,z,fm,Math.PI/2);
-    plane(d-.6,h-4.5,x-w/2-.1,(h+3.5)/2,z,fm,-Math.PI/2);
-    for(let row=4.1;row<h;row+=3.1){ box(w+.25,.25,d+.25,x,row,z,base); }
-    box(w+.5,.5,d+.5,x,h,z,base);
-    if(roof)roofEquipment(x,z,w,d,h);
-    if(shop) shopfronts(x,z+d/2+.3,w,seed);
-    return {x,z,w,d,h};
-  }
   function shopfronts(x,z,w,seed=1){
     const names=['江边咖啡','一碗热面','慢慢书店','山城小铺','橘子汽水','巷里鲜花','街角面包','三峡茶事'];
     const colors=[palette.mint,palette.coral,palette.navy,palette.yellow];
@@ -122,171 +112,215 @@ export function createWorld(id = 'cbd') {
       if(i%2===0){box(.65,1.05,.3,sx+cw*.31,.62,z+1.5,palette.cream);sign('今日营业',sx+cw*.31,.75,z+1.69,.56,.55,palette.cream,palette.dark,{size:110});}
     }
   }
-  function pavement(x,z,w,d){box(w,.22,d,x,.12,z,palette.pavement);box(w,.3,.25,x,.15,z+d/2,palette.cream);}
-
-  // One painted road surface avoids coplanar crossing markings and distant z-fighting.
-  const road=canvasTexture(2048,3072,(c,W,H)=>{
-    c.fillStyle=isCBD?'#7b8278':'#6d7b79';c.fillRect(0,0,W,H);
-    const px=x=>(x+80)/160*W, pz=z=>(z+140)/190*H;
-    c.lineWidth=3;c.strokeStyle='rgba(20,42,38,.11)';
-    for(let k=0;k<10000;k++){const x=seeded(k*2)*W,y=seeded(k*2+1)*H;c.beginPath();c.moveTo(x,y);c.lineTo(x+3,y+4);c.stroke();}
-    c.fillStyle='#c1bd9c';
-    for(let z=-130;z<36;z+=7){c.fillRect(px(-.2),pz(z),px(.2)-px(-.2),35);}
-    c.fillStyle='#ede9cc';
-    for(let x=-67;x<70;x+=7){c.fillRect(px(x),pz(21.9),46,5);}
-    // The long street meets a broad foreground avenue.
-    for(const zz of [3,29])for(let x=-9;x<9;x+=1.5)c.fillRect(px(x),pz(zz),14,105);
-    for(const xx of [-18,17])for(let z=14;z<27;z+=1.6)c.fillRect(px(xx),pz(z),72,13);
-    c.lineWidth=5;c.strokeStyle='#d3c897';
-    for(const off of [-.5,.5]){c.beginPath();c.moveTo(px(-73),pz(23+off));c.lineTo(px(73),pz(23+off));c.stroke();}
-    c.fillStyle='#e8e5cb';c.font='bold 66px sans-serif';c.textAlign='center';
-    for(const x of [-29,31]){c.save();c.translate(px(x),pz(16));c.rotate(Math.PI/2);c.fillText('↑',0,0);c.restore();}
-    // Pavement joints, drains and subtle repaired asphalt.
-    c.fillStyle='rgba(48,63,54,.22)';c.fillRect(px(-6),pz(-28),110,75);
-    c.strokeStyle='#505e57';c.lineWidth=3;
-    for(let z=-130;z<40;z+=15){c.beginPath();c.arc(px(7),pz(z),14,0,TAU);c.stroke();}
-  });
-  const ground=plane(160,190,0,-.02,-45,customMaterial({map:road,color:'#fff'}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
-  // Continue the street surface beyond the detailed block without raising a platform.
-  const groundExtension=plane(1600,1900,0,-.065,-45,material(isCBD?'#7b8278':'#6d7b79'));
-  groundExtension.rotation.x=-Math.PI/2;groundExtension.receiveShadow=true;groundExtension.castShadow=false;
-  // Pavements leave the primary road and its cross street continuous.
-  for(const side of [-1,1]){pavement(side*34,-57,46,140);pavement(side*38,39,55,16);}
-  for(const side of [-1,1])for(let k=0;k<7;k++){
-    const z=4-k*18;box(.4,.3,2.7,side*11.2,.22,z,palette.cream);
-    box(.8,.04,1.4,side*11.7,.27,z,material('#546a64'));
-    for(let j=0;j<6;j++)box(.05,.03,1.25,side*11.4+j*.12,.3,z,palette.stone);
+  function pavement(x,z,w,d){
+    box(w,.18,d,x,.1,z,palette.pavement);box(w,.22,.22,x,.12,z+d/2,'#a9afa9');
+    const tex=canvasTexture(256,256,(c,W,H)=>{c.fillStyle='#b9bcb6';c.fillRect(0,0,W,H);c.strokeStyle='#aaafa9';c.lineWidth=1.2;for(let y=0;y<H;y+=64){c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.stroke();for(let xx=(y%128?0:64);xx<W;xx+=128){c.beginPath();c.moveTo(xx,y);c.lineTo(xx,y+64);c.stroke();}}});
+    tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(w/4,d/4);
+    const floor=plane(w-.05,d-.05,x,.198,z,customMaterial({map:tex,color:'#fff'}));floor.rotation.x=-Math.PI/2;
   }
 
-  // Architectural compositions: each landmark keeps its distinct silhouette.
-  if(isCBD){
-    const x=-30,z=-20,w=35,d=34,h=24;
-    box(w,h,d,x,h/2,z,palette.warm);
-    box(w+1,.75,d+1,x,h,z,palette.cream);
-    box(w,.65,.65,x,6.5,z+d/2+.2,palette.cream);
-    const glass=facade(35,24,{cols:15,rows:6,seed:21,warm:.22});
-    plane(w-1,7.7,x,4.1,z+d/2+.13,glass);
-    plane(d-.8,h-1,x-w/2-.12,h/2,z,glass,-Math.PI/2);
-    plane(d-.8,h-1,x+w/2+.12,h/2,z,glass,Math.PI/2);
-    box(27,14,.65,x+2,16,-2.65,'#64716a');
-    const lineMat=material('#c2d6c5',{emissive:'#abc7c1',emissiveIntensity:0});emissives.push({mat:lineMat,value:.95});
-    for(let i=0;i<35;i++){box(.17,13.7,.4,x-11.4+i*.79,16,-2.08,lineMat);}
-    sign('CBD · 购物中心',x+2,17,-1.72,26,3.7,'#576b64','#ffb061',{sub:'YICHANG · CITY LIFE',size:130,bright:true});
-    box(w+.3,.45,.7,x,24.55,-3,palette.yellow);
-    // Tall glazed stair tower, a recognizable CBD facade feature.
-    box(6.6,24.4,5.2,-48.1,12.2,-2.5,'#385f63');
-    const stairMat=facade(6,25,{cols:3,rows:8,seed:36,warm:.18});
-    plane(6.4,24,-48.1,12.3,.22,stairMat);
-    plane(5,24,-44.74,12.3,-2.5,stairMat,Math.PI/2);
-    for(let y=2;y<24;y+=3){box(6.6,.2,5.3,-48.1,y,-2.5,palette.cream);const st=box(5.3,.18,.45,-48.1,y+1.3,.49,palette.stone);st.rotation.z=(Math.floor(y/3)%2===0?1:-1)*.35;}
-    roofEquipment(x,z,w,d,h);
-    shopfronts(x,-2.1,w,2);
-    // The side passage recalls the dense, awning-lined Tieluba food street.
-    for(let i=0;i<4;i++){
-      const zz=-20-i*22;
-      building(24,zz,20,19,22+(i%3)*4,{base:i%2? '#baa993':'#d8c9ae',seed:50+i});
-      const sideFace=facade(18,20,{cols:5,rows:6,seed:110+i,warm:.18});plane(18,18,13.85,15,zz,sideFace,-Math.PI/2);
-      for(let lev=8;lev<22;lev+=4){
-        box(2.1,.25,15,12.9,lev,zz,palette.cream);
-        for(let rail=0;rail<7;rail++)box(.08,.9,.08,11.9,lev+.5,zz-6+rail*2,palette.dark);
-        box(.1,.1,15,11.9,lev+.98,zz,palette.dark);
+  // One painted road surface carries continuous carriageway and crossing markings.
+  const road=canvasTexture(2048,3072,(c,W,H)=>{
+    c.fillStyle='#696e72';c.fillRect(0,0,W,H);
+    const px=x=>(x+130)/260*W,pz=z=>(z+155)/220*H;
+    const rect=(x,z,w,d)=>c.fillRect(px(x),pz(z),w/260*W,d/220*H);
+    c.strokeStyle='rgba(24,34,39,.095)';c.lineWidth=2;
+    for(let k=0;k<14000;k++){const x=seeded(k*2)*W,y=seeded(k*2+1)*H;c.beginPath();c.moveTo(x,y);c.lineTo(x+2,y+3);c.stroke();}
+    // Four lanes across the foreground avenue and a narrower side street.
+    c.fillStyle='#cfcfc4';
+    for(let x=-125;x<126;x+=8){rect(x,18.5,4,.14);rect(x,30.5,4,.14);}
+    for(let z=-146;z<2;z+=8){rect(-.08,z,.16,3.3);}
+    for(const x of[-8.7,8.7])rect(x,-148,.12,151);
+    c.fillStyle='#b7ad73';rect(-127,24.1,254,.13);rect(-127,24.55,254,.13);
+    // Pedestrian crossings connect the pavement, not arbitrary road centres.
+    c.fillStyle='#dbdcd3';
+    for(let z=12.5;z<36.8;z+=1.45)rect(-5.5,z,11,.68);
+    for(let x=-8.4;x<8.4;x+=1.4)rect(x,5.2,.65,4.8);
+    rect(-8.6,3.8,8,.28);rect(.6,-.1,8,.28);
+    // Stopping lines and a marked bus bay along the near commercial frontage.
+    rect(-9,12.3,.26,10.5);rect(9,25.6,.26,11.3);
+    c.strokeStyle='#d0c899';c.lineWidth=3;c.setLineDash([14,10]);
+    c.strokeRect(px(isCBD?-75:-95),pz(12.6),21/260*W,3.7/220*H);c.setLineDash([]);
+    c.fillStyle='#d4d6cf';c.font=font(48,600);c.textAlign='center';
+    for(const x of[-101,-30,39,96]){
+      c.save();c.translate(px(x),pz(20.7));c.rotate(Math.PI/2);c.fillText('↑',0,0);c.restore();
+      c.save();c.translate(px(x),pz(33));c.rotate(-Math.PI/2);c.fillText('↑',0,0);c.restore();
+    }
+    c.strokeStyle='#4f5a5c';c.lineWidth=3;
+    for(let z=-132;z<0;z+=27){c.beginPath();c.arc(px(5.7),pz(z),6,0,TAU);c.stroke();}
+  });
+  const ground=plane(260,220,0,-.02,-45,customMaterial({map:road,color:'#fff'}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;
+  const groundExtension=plane(1600,1900,0,-.065,-45,material('#696e72'));
+  groundExtension.rotation.x=-Math.PI/2;groundExtension.receiveShadow=true;groundExtension.castShadow=false;
+  pavement(-68,-69,122,156);
+  pavement(isCBD?35:46,-69,isCBD?50:74,156);
+  pavement(0,52,260,23);
+  // Tactile paving is on the sidewalk, with a clear approach to the crossing.
+  for(const [x,z,w,d]of[[-61,7.7,93,.48],[isCBD?34:46,7.7,isCBD?47:72,.48],[-9.9,-62,.48,135],[10.5,-62,.48,135]]){
+    box(w,.035,d,x,.255,z,'#b7aa79');
+    if(w>d)for(let k=-1;k<=1;k++)box(w,.025,.035,x,.286,z+k*.12,'#d0c18c');
+    else for(let k=-1;k<=1;k++)box(.035,.025,d,x+k*.12,.286,z,'#d0c18c');
+  }
+  for(const x of[-8.8,8.8])for(let i=0;i<4;i++)for(let j=0;j<5;j++){
+    cyl(.035,.035,.025,x+(i-1.5)*.14,.29,8.7+(j-2)*.14,'#d0c18c',5);
+  }
+  for(const side of[-1,1])for(let k=0;k<5;k++){
+    const x=side*9.3,z=-4-k*26;box(.55,.025,1.25,x,.258,z,'#586361');
+    for(let j=0;j<5;j++)box(.04,.02,1.1,x-.21+j*.105,.276,z,'#8c9690');
+  }
+  function guardRail(x0,x1,z){
+    box(x1-x0,.065,.065,(x0+x1)/2,1.21,z,'#9fa7a3');
+    box(x1-x0,.055,.055,(x0+x1)/2,.5,z,'#9fa7a3');
+    for(let x=x0;x<=x1;x+=3.6){cyl(.045,.065,1.18,x,.62,z,'#9fa7a3',6);box(.25,.08,.25,x,.08,z,'#777f7b');}
+    for(let x=x0+.5;x<x1;x+=.55)box(.035,.68,.035,x,.85,z,'#9fa7a3');
+  }
+  guardRail(-124,-11,24.4);guardRail(11,124,24.4);
+  guardRail(isCBD?15:17,isCBD?55:78,11.2);
+
+  // Main landmarks are separately reconstructed from the local reference photographs.
+  const kit={THREE,group,material,customMaterial,addMesh,box,cyl,sphere,plane,canvasTexture,font,textTexture,sign,facade,roofEquipment,shopfronts,emissives,glow,noInk,staticMeshes,seeded,palette};
+  const architecture=isCBD?buildCbd(kit):buildGuomao(kit);
+
+  // Ordinary older apartments use punched windows and small balconies, not curtain walls.
+  function apartment(x,z,w,d,floors,{wall='#c9c6bd',seed=0,stores=true,balconies=true}={}){
+    const h=3.5+floors*2.85,front=z+d/2;
+    box(w,h,d,x,h/2,z,wall);
+    box(w+.25,.3,d+.25,x,h+.1,z,'#b6b8b3');
+    for(const side of [-1,1])box(.17,.65,d+.1,x+side*w/2,h+.52,z,'#a8aaa5');
+    box(w,.65,.17,x,h+.52,z-d/2,'#a8aaa5');
+    const bays=Math.max(3,Math.floor(w/3.6)),bay=w/bays;
+    const frame=material('#e2e1d9'),pane=material('#485253'),paneLight=material('#727e7b');
+    for(let r=0;r<floors;r++)for(let j=0;j<bays;j++){
+      const xx=x-w/2+bay*(j+.5),yy=5+r*2.85;
+      box(1.75,1.8,.14,xx,yy,front+.08,frame);
+      box(1.53,1.59,.12,xx,yy,front+.2,(j+r+seed)%4?pane:paneLight);
+      box(.055,1.6,.14,xx,yy,front+.3,frame);
+      box(1.76,.12,.35,xx,yy-.93,front+.17,'#9eaaa5');
+      if((j+r+seed)%3===0){
+        box(.78,.5,.42,xx+.9,yy-.93,front+.31,'#b7bcb4');
+        const fan=cyl(.17,.17,.025,xx+.9,yy-.93,front+.54,'#78827d',8);fan.rotation.x=Math.PI/2;
+        box(.74,.055,.4,xx+.9,yy-1.22,front+.31,'#7b827a');
       }
-      for(let j=0;j<3;j++){
-        const zz2=zz-6+j*6,cor=(i+j)%2?palette.coral:'#407a6b';
-        const aw=box(3.1,.15,5.3,11.8,3.4,zz2,cor);aw.rotation.z=-.12;
-        box(.14,.42,5.3,10.3,3.08,zz2,cor);
-        box(1.5,1.3,3.8,12,.8,zz2,palette.warm);
-        const names=['小巷热面','宜昌凉虾','三峡小食','街边烧烤'];
-        const sm=customMaterial({map:textTexture(names[(i+j)%4],cor,'#fff1c6',{size:105}),side:THREE.DoubleSide,emissive:'#fff',emissiveIntensity:0});emissives.push({mat:sm,value:.8});
-        const s=plane(5,1,10.16,4.3,zz2,sm,-Math.PI/2);glow.push(s);
+      if(balconies&&r>0&&j%3===1){
+        box(2.3,.16,1.05,xx,yy-1.04,front+.48,'#aaa9a1');
+        box(2.3,.09,.08,xx,yy-.35,front+1,'#656e69');
+        for(let k=0;k<6;k++)box(.045,.65,.045,xx-1+k*.4,yy-.68,front+1,'#747c76');
+        box(.07,.65,.95,xx-1.1,yy-.68,front+.53,'#747c76');
+        box(.07,.65,.95,xx+1.1,yy-.68,front+.53,'#747c76');
+        if((r+j+seed)%4===0){box(.6,.28,.36,xx-.5,yy-.8,front+.7,'#7b6a57');sphere(.3,xx-.5,yy-.55,front+.7,'#526b45');}
       }
     }
-    building(-31,-68,34,28,38,{base:'#a3aea0',seed:9,glass:true});
-    building(-28,-107,35,22,45,{base:'#718f88',seed:11,glass:true});
-    sign('铁路坝小吃街',21.6,9.5,-7.8,16,1.8,'#b25e42','#f3e7ca',{sub:'一城烟火 · 巷里相逢',size:125});
-  } else {
-    // Guomao's wide retail podium and separate dark-glass tower, not twin towers.
-    const mx=-26,mz=-26,mw=39,md=38,mh=23;
-    box(mw,mh,md,mx,mh/2,mz,'#2c434a');
-    const gm=facade(mw,mh,{cols:17,rows:7,seed:73,warm:.34});
-    plane(mw-.4,mh-.4,mx,mh/2,mz+md/2+.12,gm);
-    plane(md-.4,mh-.4,mx-mw/2-.12,mh/2,mz,gm,-Math.PI/2);
-    plane(md-.4,mh-.4,mx+mw/2+.12,mh/2,mz,gm,Math.PI/2);
-    for(let y=3;y<mh;y+=3.4)box(mw+.35,.28,md+.35,mx,y,mz,'#778f86');
-    const finmat=material('#adc9bf',{emissive:'#b8e0d6',emissiveIntensity:0});emissives.push({mat:finmat,value:.9});
-    for(let k=0;k<25;k++)box(.14,5.4,.42,mx-mw/2+.7+k*1.57,21.3,-6.65,finmat);
-    box(mw+.7,.45,md+.7,mx,mh+.4,mz,'#a3bcb0');
-    roofEquipment(mx,mz,mw,md,mh);
-    const tx=-36,tz=-43,tw=21,td=24,th=59;
-    box(tw,th,td,tx,th/2,tz,'#1e3c43');
-    const tower=facade(tw,th,{cols:12,rows:20,seed:100,warm:.45});
-    plane(tw-.3,th-2,tx,th/2,tz+td/2+.12,tower);
-    plane(td-.3,th-2,tx+tw/2+.12,th/2,tz,tower,Math.PI/2);
-    plane(td-.3,th-2,tx-tw/2-.12,th/2,tz,tower,-Math.PI/2);
-    for(let y=4;y<53;y+=2.8)box(tw+.25,.18,td+.25,tx,y,tz,'#7c9689');
-    for(let k=0;k<8;k++){box(.18,th,.4,tx-tw/2+k*3,th/2,tz+td/2+.26,'#19363d');}
-    const crownMat=material('#9ecbb9',{emissive:'#9de0c8',emissiveIntensity:0});emissives.push({mat:crownMat,value:1.05});
-    for(let k=0;k<25;k++){const yy=54.7+seeded(k+3)*2.1;box(.18,2.2+seeded(k)*2.6,.35,tx-tw/2+.6+k*.81,yy,tz+td/2+.35,crownMat);}
-    sign('国 贸',tx,55.6,tz+td/2+.65,18,5.7,'#24454b','#b7e0c4',{size:180,bright:true});
-    roofEquipment(tx,tz,tw,td,th);
-    sign('国贸购物广场',mx,8.6,-6.5,26,2.5,'#27474d','#eee2b2',{sub:'GUOMAO · YICHANG',size:134,bright:true});
-    shopfronts(mx,-6.35,mw,4);
-    // A broad screen with a locally drawn campaign, not an external billboard image.
-    const adTex=canvasTexture(1024,512,(c,W,H)=>{
-      c.fillStyle='#d77658';c.fillRect(0,0,W,H);c.fillStyle='#edcc89';c.beginPath();c.arc(W*.8,H*.38,H*.48,0,TAU);c.fill();
-      c.fillStyle='#305b56';c.beginPath();c.moveTo(440,H);c.quadraticCurveTo(650,30,W,H*.7);c.lineTo(W,H);c.fill();
-      c.fillStyle='#fff1d0';c.font=font(105,700);c.fillText('宜昌，好有趣。',45,180,800);c.font=font(38,500);c.fillText('去街角，遇见下一段风景',50,270);c.font=font(25);c.fillText('YICHANG / A DIFFERENT PERSPECTIVE',52,425);
-    });
-    const adm=customMaterial({map:adTex,emissive:'#fff',emissiveMap:adTex,emissiveIntensity:0});emissives.push({mat:adm,value:1.0});
-    const ad=plane(17,7.5,-31,15,-6.37,adm);glow.push(ad);
-    // A green foreground edge and a low commercial block frame the opposite side.
-    building(33,-39,28,37,27,{base:'#bec4ad',seed:33});
-    building(29,-82,27,27,35,{base:'#94a79c',seed:35,glass:true});
-    building(-31,-94,27,23,42,{base:'#899c90',seed:37,glass:true});
-    sign('国贸',-31,44,-81.9,10,3.1,'#5a5145','#f0a078',{size:150,bright:true});
-    box(19,.45,21,28,.42,-8,'#80946c');
-    for(let k=0;k<4;k++)box(19,.16,.24,28,.72,-17+k*5.6,'#c7ccb1');
-    sign('东山大道',17,7.2,7,7.2,1.55,'#47746b','#f1edcf',{sub:'DONGSHAN AVENUE',size:116});
+    // Side walls remain mostly plaster, with individual windows and drainage pipes.
+    for(const side of [-1,1]){
+      for(let r=0;r<floors;r++)for(let j=0;j<Math.max(2,Math.floor(d/4.5));j++){
+        const zz=z-d/2+2.4+j*4.2,yy=5+r*2.85;
+        box(.14,1.7,1.45,x+side*(w/2+.06),yy,zz,frame);
+        box(.14,1.47,1.22,x+side*(w/2+.15),yy,zz,pane);
+      }
+      cyl(.045,.045,h-.5,x+side*(w/2+.2),(h-.5)/2,front-.5,'#939d96',5);
+    }
+    if(stores){
+      const labels=['便民超市','家常小馆','手机维修','早点铺','巷口茶饮','文具百货'];
+      for(let j=0;j<Math.max(2,Math.floor(w/5.5));j++){
+        const n=Math.max(2,Math.floor(w/5.5)),cw=w/n,xx=x-w/2+cw*(j+.5),color=['#586a66','#8e6b58','#687a7a'][Math.abs(j+seed)%3];
+        box(cw-.3,2.7,.17,xx,1.5,front+.13,'#596662');
+        box(.1,2.7,.22,xx,1.5,front+.28,'#c9ccc2');
+        sign(labels[(j+seed)%labels.length],xx,3.25,front+.35,cw-.15,.7,color,'#e2dfd2',{size:96});
+        if(j%2===1){const aw=box(cw-.1,.12,1.2,xx,2.8,front+.72,color);aw.rotation.x=.12;box(cw-.1,.23,.1,xx,2.62,front+1.28,color);}
+      }
+    }
+    // A water tank and roof utility room replace the repeated rooftop AC triplets.
+    box(3.6,1.65,3,x-w*.22,h+.95,z-d*.2,'#b5b5aa');
+    if(seed%2===0)cyl(.8,.8,1.5,x+w*.25,h+1,z-d*.2,'#8b938b',12);
+    return {x,z,w,d,h};
   }
 
-  // Distant skyline silhouettes are fully modeled so oblique reveals remain populated.
-  for(let i=0;i<8;i++){
-    const x=(i-3.5)*16,zz=-131-seeded(i+17)*13,h=24+seeded(i+37)*30;
-    if(Math.abs(x)<7)continue;
-    building(x,zz,13+seeded(i)*4,18,h,{base:['#93aaa0','#b5bca7','#768e87'][i%3],seed:200+i,shop:false});
+  if(isCBD){
+    apartment(-70,-66,34,24,6,{wall:'#bdbeb5',seed:2,stores:false});
+    apartment(-33,-70,27,23,5,{wall:'#cfccc0',seed:5,stores:false});
+    apartment(-91,-102,31,22,7,{wall:'#c4c3bb',seed:3,stores:false,balconies:false});
+    apartment(-51,-111,30,22,6,{wall:'#bbbbb1',seed:6,stores:false});
+    apartment(23,-23,22,25,5,{wall:'#c6c4bb',seed:8});
+    apartment(25,-54,24,24,6,{wall:'#d1cdc1',seed:11});
+    apartment(24,-85,23,24,5,{wall:'#bdbdb5',seed:14});
+    apartment(23,-115,22,22,6,{wall:'#cbc8be',seed:17,stores:false});
+    // Narrow side-facing stalls and weathered green/red awnings recall Tieluba.
+    for(let i=0;i<10;i++){
+      const z=-15-i*8.5,col=i%3===0?'#876254':i%3===1?'#4f7667':'#6c7467';
+      box(2.25,2.7,6.2,11.8,1.5,z,'#9b9c8f');
+      const aw=box(3.6,.13,6.2,11.05,3.14,z,col);aw.rotation.z=-.1;
+      box(.1,.35,6.2,9.3,2.93,z,col);
+      const tex=textTexture(['宜昌凉虾','热干面','小巷小食','米酒汤圆'][i%4],col,'#eee4cf',{size:110});
+      const mat=customMaterial({map:tex,color:'#fff',emissive:'#fff',emissiveMap:tex,emissiveIntensity:0,side:THREE.DoubleSide});emissives.push({mat,value:.55});
+      const label=plane(5.7,.75,9.12,3.65,z,mat,-Math.PI/2);glow.push(label);
+      box(1.2,.9,4,10,.65,z,'#a49175');
+    }
+    sign('铁路坝小吃街',23,5.2,-9.9,13.5,1.25,'#785447','#e9e1ce',{size:120});
+  }else{
+    // Lower hotel mass to the west; the eastern side is intentionally an open square.
+    const hx=-101,hz=-87,hw=23,hd=24,hh=49;
+    box(hw,hh,hd,hx,hh/2,hz,'#a7a89e');
+    const hotelFace=canvasTexture(512,1024,(c,W,H)=>{
+      c.fillStyle='#6e7774';c.fillRect(0,0,W,H);
+      for(let r=0;r<17;r++)for(let j=0;j<6;j++){
+        c.fillStyle=(r+j)%5===0?'#a8a389':'#3d4948';c.fillRect(j*W/6+9,r*H/17+6,W/6-18,H/17-16);
+      }
+      c.fillStyle='#c2c2b1';for(let r=0;r<17;r++)c.fillRect(0,r*H/17,W,3);
+    });
+    const hotelMat=customMaterial({map:hotelFace,color:'#fff'});
+    plane(hw-1,hh-2,hx,hh/2,hz+hd/2+.1,hotelMat);
+    plane(hd-1,hh-2,hx+hw/2+.1,hh/2,hz,hotelMat,Math.PI/2);
+    for(const side of[-1,1])box(.55,hh+.5,hd+.3,hx+side*(hw/2-.4),hh/2,hz,'#c5c0aa');
+    sign('国贸酒店',hx,hh+1.2,hz+hd/2+.3,16,2.4,'#656459','#ba6e5f',{size:134});
+    apartment(-91,-124,32,24,6,{wall:'#b6b9ae',seed:25,stores:false});
+    apartment(-55,-127,29,24,7,{wall:'#c4c1b7',seed:28,stores:false});
+    apartment(54,-132,34,21,5,{wall:'#c2c5bb',seed:31,stores:false});
+    // Yiling Square cue: a broad, quiet paved foreground with green islands and tree rows.
+    for(const [x,z,w,d]of[[33,-26,26,30],[63,-26,21,30],[32,-67,24,33],[64,-69,22,36]]){
+      box(w,.08,d,x,.26,z,'#5d7051');
+      box(w+.2,.12,.25,x,.28,z+d/2,'#929a8a');
+    }
+    // A central walking axis and restrained paving bands keep the square legible.
+    for(let z=-98;z<7;z+=9)box(69,.024,.28,46,.252,z,'#b0b2aa');
+    for(let x=14;x<82;x+=10)box(.28,.024,108,x,.252,-46,'#b0b2aa');
+    cyl(2.7,2.7,.2,47,.35,-51,'#a5aca2',40);
+    cyl(1.95,1.95,.14,47,.52,-51,'#657e7a',32);
   }
-  // Planters, street trees, furniture and details are repeated in depth for the illusion.
+
+  // Street trees follow real sidewalk edges; the square uses loose peripheral rows.
   function tree(x,z,scale=1){
-    box(2.8,.55,2.8,x,.45,z,palette.cream);box(2.45,.12,2.45,x,.79,z,'#6b7354');
-    cyl(.18,.28,4.5*scale,x,2.5*scale,z,palette.bark,8);
-    const crown=sphere(2.3*scale,x,6*scale,z,palette.leaf);crown.scale.set(1.1,.82,1);
-    sphere(1.8*scale,x-1.3*scale,5.8*scale,z+.4,palette.green);
-    sphere(1.7*scale,x+1.2*scale,6.6*scale,z-.3,'#8ca37b');
-    for(const zz of [-.8,.8])box(.1,2.3,.1,x+.55,1.6,z+zz,palette.steel);
+    box(1.8,.1,1.8,x,.25,z,'#8b9385');box(1.5,.035,1.5,x,.32,z,'#5b6151');
+    cyl(.13,.24,4.1*scale,x,2.27*scale,z,palette.bark,9);
+    const crown=sphere(2.25*scale,x,5.55*scale,z,'#3d5d43');crown.scale.set(1.16,.9,.97);
+    sphere(1.7*scale,x-1.3*scale,5.4*scale,z+.5,'#47664a');
+    sphere(1.6*scale,x+1.1*scale,6.15*scale,z-.25,'#506f4e');
+    sphere(1.25*scale,x+.2,5.1*scale,z+1.3,'#344f3b');
   }
-  for(const side of [-1,1])for(let i=0;i<6;i++){
-    const z=4-i*19,scale=.9+seeded(i+side*3)*.16;
-    tree(side*(isCBD?13.5:13.9),z,scale);
-  }
-  [ [-58,8],[-58,-14],[48,5],[52,-17],[48,-52],[-57,-66] ].forEach((p,i)=>tree(p[0],p[1],1.2));
+  const treePositions=isCBD?
+    [[-103,7.8,1.1],[-77,8.1,.96],[-28,8.1,.9],[-11,7.8,1],[-10.2,-35,.93],[10.4,-37,1.03],[10.3,-64,1],[10.6,-90,.92],[39,4.5,1.2],[48,-39,1.16]]:
+    [[-107,8,1.1],[-89,8,1.03],[-11.6,6.8,1.12],[17,-7,1.1],[17,-33,1.14],[17,-62,1.08],[17,-88,1.13],[77,-8,1.12],[77,-32,1.18],[77,-61,1.08],[77,-91,1.15],[34,-104,1.12],[55,-104,1.13]];
+  treePositions.forEach(([x,z,scale])=>tree(x,z,scale));
   function bench(x,z,rot=0){
     const b=new THREE.Group();b.position.set(x,.35,z);b.rotation.y=rot;group.add(b);
     for(let j=0;j<4;j++){box(3.1,.13,.16,0,.6,-.35+j*.21,palette.warm,b,false);box(3.1,.13,.15,0,1.1+j*.17,-.45,palette.warm,b,false);}
     for(const side of [-1,1]){box(.12,.75,.9,side*1.22,.3,0,palette.steel,b,false);box(.12,1.65,.1,side*1.22,.9,-.48,palette.steel,b,false);}
     b.traverse(o=>{if(o.isMesh)staticMeshes.push(o);});
   }
-  bench(-15.5,-10,Math.PI/2);bench(16,-5,-Math.PI/2);bench(18,-46,-Math.PI/2);bench(-17,-54,Math.PI/2);
+  if(isCBD){bench(-10,-18,Math.PI/2);bench(10.5,-25,-Math.PI/2);bench(-101,5.3,0);}else{bench(24,-11,0);bench(66,-45,Math.PI/2);bench(50,-99,0);}
   function bin(x,z){box(.65,1.1,.65,x,.76,z,'#4b7166');box(.73,.18,.73,x,1.39,z,palette.steel);box(.36,.13,.05,x,1.25,z+.38,palette.dark);}
-  for(const side of [-1,1])for(let i=0;i<4;i++)bin(side*12.7,-7-i*27);
-  function streetlight(x,z,side=1){
-    cyl(.085,.14,9,x,4.5,z,palette.steel,8);
-    box(2.3,.1,.12,x-side*1.0,8.9,z,palette.steel);
-    const m=material('#f2e7bb',{emissive:'#fff0b0',emissiveIntensity:0});if(!emissives.some(a=>a.mat===m))emissives.push({mat:m,value:2});
-    const l=box(1.25,.18,.4,x-side*2.1,8.85,z,m);glow.push(l);
-    box(.48,.75,.38,x,1.1,z,palette.steel);
-    if(z>0){const light=new THREE.PointLight('#e0bd71',0,14,2);light.position.set(x-side*2.1,8.2,z);group.add(light);lamps.push(light);}
+  for(const [x,z]of(isCBD?[[-10,-14],[10.5,-29],[-78,7.5]]:[[20,-13],[69,-48],[-83,7.5]]))bin(x,z);
+  function streetlight(x,z,dx=0,dz=1){
+    cyl(.075,.115,8.3,x,4.15,z,palette.steel,8);
+    const arm=box(dx?2.2:.12,.1,dz?2.2:.12,x+dx*.9,8.18,z+dz*.9,palette.steel);
+    const m=material('#e0dec6',{emissive:'#f1dfb2',emissiveIntensity:0});
+    if(!emissives.some(a=>a.mat===m))emissives.push({mat:m,value:1.4});
+    const l=box(dx?1.1:.42,.16,dz?1.1:.42,x+dx*1.8,8.12,z+dz*1.8,m);glow.push(l);
+    box(.35,.6,.3,x,.65,z,palette.steel);
+    if(z>0&&x<0){const light=new THREE.PointLight('#dbbf86',0,12,2);light.position.set(x+dx*1.8,7.7,z+dz*1.8);group.add(light);lamps.push(light);}
   }
-  for(const side of [-1,1])for(let i=0;i<5;i++)streetlight(side*10.6,9-i*27,side);
+  for(const x of[-113,-92,-16,25,61,103])streetlight(x,10,0,1);
+  for(const z of[-25,-63,-102])streetlight(-9.6,z,1,0);
+  if(!isCBD)for(const z of[-22,-70])streetlight(77,z,-1,0);
   function trafficLight(x,z,rot=0){
     cyl(.09,.12,6.1,x,3.05,z,palette.steel,8);
     box(.9,2.4,.6,x,5.8,z,palette.dark);
@@ -296,15 +330,29 @@ export function createWorld(id = 'cbd') {
     box(2.8,.13,.13,x+(x<0?1:-1)*1.3,7.08,z,palette.steel);
   }
   trafficLight(-10.4,7);trafficLight(10.6,30);
-  // Foreground road signs and information pylons have legible, correct place names.
   const avenue=isCBD?'夷陵大道':'东山大道';
-  cyl(.08,.1,5.3,-18,2.65,10,palette.steel,8);
-  sign(avenue,-18,4.9,10.1,6.3,1.2,'#487c70','#fff2d0',{sub:isCBD?'YILING AVENUE':'DONGSHAN AVENUE',size:115});
-  box(1.2,2.6,.5,16,1.6,8,palette.dark);
-  sign('街角导览',16,2.1,8.31,1.03,1.5,'#e6dcb9','#375c54',{size:120,vertical:true});
-  for(let k=0;k<5;k++){
-    const x=-6+k*3;const c=new THREE.Group();c.position.set(x,0,3);group.add(c);
-    box(.55,.12,.55,0,.07,0,palette.dark,c,false);cyl(.055,.24,.85,0,.55,0,palette.coral,8,c,false);cyl(.115,.16,.17,0,.55,0,palette.cream,8,c,false);
+  cyl(.07,.09,5.1,-9.7,2.55,10,palette.steel,8);
+  sign(avenue,-9.7,4.75,10.1,5.4,.9,'#42677a','#e6e9e1',{sub:isCBD?'YILING AVENUE':'DONGSHAN AVENUE',size:114});
+  function busShelter(x,z){
+    const frame=material('#4f5c5a'),glass=material('#75827b');
+    for(const xx of[-4.8,0,4.8])box(.12,3.1,.13,x+xx,1.76,z-.7,frame);
+    box(10.6,.17,2.7,x,3.35,z,frame);
+    box(10.5,.07,2.6,x,3.48,z,'#b8bdb3');
+    for(const xx of[-3.6,-1.2,1.2,3.6]){
+      box(2.2,1.8,.065,x+xx,1.9,z-.7,glass);
+      box(.055,1.83,.08,x+xx-1.1,1.9,z-.65,'#aeb5ac');
+    }
+    box(5.8,.12,.47,x,.72,z-.15,'#8b9187');
+    for(const xx of[-2.4,2.4])box(.09,.6,.35,x+xx,.4,z-.15,frame);
+    sign('公交候车',x-2.4,3.1,z+1.36,3.3,.48,'#4c645d','#e6e8db',{size:110});
+    sign(avenue,x+2.5,2.2,z-.59,2,1.4,'#d5d8cb','#4b5b57',{size:115,sub:'文明候车'});
+  }
+  busShelter(isCBD?-68:-88,8.2);
+  for(let k=0;k<4;k++){
+    const c=new THREE.Group();c.position.set(-11.4-k*.9,0,7);group.add(c);
+    cyl(.105,.13,.78,0,.6,0,'#747c79',8,c,false);
+    cyl(.108,.108,.09,0,.84,0,'#b6bcad',8,c,false);
+    box(.3,.06,.3,0,.23,0,'#8e9690',c,false);
     swapObjects.push({obj:c,index:k});
   }
   function bicycle(x,z,rot=0){
@@ -319,7 +367,7 @@ export function createWorld(id = 'cbd') {
     box(.35,.1,.2,-.2,1.03,0,palette.dark,g,false);box(.15,.06,.6,.45,1.12,0,palette.dark,g,false);
     g.traverse(o=>{if(o.isMesh)staticMeshes.push(o);});
   }
-  bicycle(15,1,Math.PI/2);bicycle(15,3,Math.PI/2);bicycle(-16,-20,Math.PI/2);
+  bicycle(isCBD?10.8:13.5,-14,Math.PI/2);bicycle(isCBD?10.8:13.5,-16.3,Math.PI/2);bicycle(-10.2,-29,Math.PI/2);
 
   function car(x,z,color='#d8aa72',yaw=0,kind='car'){
     const g=new THREE.Group();g.position.set(x,.03,z);g.rotation.y=yaw;group.add(g);
@@ -353,7 +401,7 @@ export function createWorld(id = 'cbd') {
     box(.58,.19,.06,0,.56,len/2+.15,'#41696f',g,false);
     animated.push({kind:'car',obj:g,x,z,yaw,phase:seeded(x+z),moving:false});return g;
   }
-  car(-5.3,-8,'#e6b463',0);car(5.3,-34,'#b8c8b9',Math.PI);car(-34,18,'#548f7b',Math.PI/2,'bus');car(28,27,'#d9d0ad',-Math.PI/2);car(4.7,-75,'#c87960',Math.PI);
+  car(-4.6,-45,'#c1c8c4',0);car(4.7,-88,'#a8b6b4',Math.PI);car(isCBD?-63:-83,15,'#d1d8cf',Math.PI/2,'bus');car(33,32.2,'#b9c0bd',-Math.PI/2);car(-26,20.4,'#aaa69b',Math.PI/2);
 
   function person(x,z,seed=0,scale=1,walking=true){
     const g=new THREE.Group();g.position.set(x,.28,z);g.scale.setScalar(scale);group.add(g);
@@ -377,12 +425,16 @@ export function createWorld(id = 'cbd') {
     }
     animated.push({kind:'person',obj:g,x,z,seed,legs,arms,walking,scale});return g;
   }
-  for(let i=0;i<18;i++){
-    const side=i%2?-1:1,x=side*(12.1+seeded(i+21)*5),z=8-seeded(i+7)*91;
+  for(let i=0;i<10;i++){
+    const x=(isCBD?-82:-75)+i*(isCBD?7.2:6.3),z=5.9+seeded(i+7)*1.7;
     person(x,z,i,.94+seeded(i)*.15,i%4!==0);
   }
-  // Small social groups read as intentional visitors rather than uniformly scattered dots.
-  person(-8.5,2,23,1,true);person(-7.4,2.8,24,.85,true);person(7.5,-4,25,1,false);
+  for(let i=0;i<8;i++){
+    const x=isCBD?(i%2?-10.8:10.6):(48+seeded(i+4)*2.8),z=-15-i*10.2;
+    person(x,z,i+10,.94+seeded(i)*.13,i%3!==0);
+  }
+  person(isCBD?-59:-46,6.2,23,1,true);person(isCBD?-57.6:-44.6,6.5,24,.85,true);
+  person(isCBD?10.9:24,-8,25,1,false);
 
   // Restrained rain is a single draw call and only appears in rain-night mode.
   const rainCount=600, rainGeo=new THREE.BufferGeometry(),rainPositions=new Float32Array(rainCount*6),rainSeeds=[];
@@ -419,10 +471,10 @@ export function createWorld(id = 'cbd') {
   group.updateMatrixWorld(true);
   const batches=new Map();
   for(const mesh of staticMeshes){
-    if(glow.includes(mesh)||noInk.includes(mesh)||Array.isArray(mesh.material))continue;
+    if(mesh.isInstancedMesh||glow.includes(mesh)||noInk.includes(mesh)||Array.isArray(mesh.material))continue;
     const key=mesh.material.uuid;
     if(!batches.has(key))batches.set(key,{mat:mesh.material,geos:[],meshes:[]});
-    const b=batches.get(key), geo=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+    const b=batches.get(key), geo=(mesh.geometry.index?mesh.geometry.toNonIndexed():mesh.geometry.clone()).applyMatrix4(mesh.matrixWorld);
     for(const attr of Object.keys(geo.attributes))if(!['position','normal','uv'].includes(attr))geo.deleteAttribute(attr);
     if(!geo.attributes.uv)geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(geo.attributes.position.count*2),2));
     b.geos.push(geo);b.meshes.push(mesh);
@@ -452,7 +504,7 @@ export function createWorld(id = 'cbd') {
         item.arms.forEach((l,i)=>l.rotation.x=walk?-Math.sin(phase+i*Math.PI)*.3:0);
       }
     }
-    for(const {obj,index} of swapObjects){obj.position.z=3-(shot.lay||0)*index*3.2;obj.scale.setScalar(shot.cs||1);}
+    for(const {obj,index} of swapObjects){obj.position.z=7-(shot.lay||0)*index*2.7;obj.scale.setScalar(shot.cs||1);}
     if(night){
       const pos=rainGeo.attributes.position.array;
       for(let i=0;i<rainCount;i++){
@@ -465,20 +517,6 @@ export function createWorld(id = 'cbd') {
   function dispose(){
     group.traverse(o=>{if(o.geometry)o.geometry.dispose();});materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
   }
-  const focus=isCBD?{
-    x:-3,y:14,zf:-12,W:98,
-    heroBounds:[
-      {min:[-48,0,-38],max:[-11.5,29,-.5]},
-      {min:[-51.6,0,-5.5],max:[-44.5,25,.8]}
-    ],
-    target:{left:.08,right:.88,top:.12,bottom:.78}
-  }:{
-    x:-5,y:23,zf:-26,W:112,
-    heroBounds:[
-      {min:[-46,0,-45.5],max:[-5.8,28,-4.5]},
-      {min:[-47.3,0,-55.5],max:[-24.5,64,-30.3]}
-    ],
-    target:{left:.08,right:.88,top:.12,bottom:.78}
-  };
+  const focus=architecture.focus;
   return {group,glow,noInk,focus,animate,setNight,dispose};
 }

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f2e9">
+  <meta name="description" content="换个角度，看见熟悉的宜昌。探索CBD与国贸的插画街景，让一幅画在镜头中展开成立体城市。">
+  <title>宜昌 · 街角幻境 — 换个角度，看见宜昌</title>
+  <link rel="canonical" href="https://yichang-street-perspectives.gaoronghai.chatgpt.site/">
+  <meta property="og:title" content="宜昌 · 街角幻境">
+  <meta property="og:description" content="换个角度，看见熟悉的宜昌。CBD与国贸的交互插画街景。">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/utils/BufferGeometryUtils.js":"./vendor/BufferGeometryUtils.js"}}</script>
+</head>
+<body>
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.5 14a9 9 0 0 1-10.5-10.5A9 9 0 1 0 20.5 14Z"/><path d="m18 3 .5 1.5L20 5l-1.5.5L18 7l-.5-1.5L16 5l1.5-.5z"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 6h4l2-3h4l2 3h4a1 1 0 0 1 1 1v12H3V7a1 1 0 0 1 1-1Z"/><circle cx="12" cy="12" r="4"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-flat" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 15l6-6 4 4 6-4"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10"/></symbol>
+    <symbol id="i-orbit" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="5" transform="rotate(-30 12 12)"/><circle cx="12" cy="12" r="3"/><path d="m19 3 3 1-1 3"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 11a9 9 0 1 1 2.5 7M3 5v6h6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol>
+  </defs></svg>
+  <main id="app" class="app">
+    <div id="viewport" class="viewport">
+      <canvas id="gl" aria-label="宜昌CBD与国贸的交互式三维插画场景，可用下方镜头控件探索" tabindex="0"></canvas>
+    </div>
+    <div class="edge-shade" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="宜昌街角幻境首页">
+        <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 25V10l8-4v19m0-11 7-4v15m0-8 7-3v11M4 26h24"/></svg></span>
+        <span class="brand-name">宜昌<span class="brand-dot">·</span>街角幻境<small>YICHANG IN PERSPECTIVE</small></span>
+      </a>
+      <nav class="scene-switch" aria-label="选择宜昌场景">
+        <button class="scene-tab active" data-scene="cbd" aria-pressed="true"><span class="tab-no">01</span> CBD 街角</button>
+        <button class="scene-tab" data-scene="guomao" aria-pressed="false"><span class="tab-no">02</span> 国贸广场</button>
+      </nav>
+      <div class="header-actions">
+        <button class="icon-button" id="about-button" title="关于这座街景" aria-label="关于这座街景"><svg><use href="#i-info"/></svg></button>
+        <button class="icon-button fullscreen-button" id="fullscreen-button" title="全屏观看" aria-label="全屏观看"><svg><use href="#i-expand"/></svg></button>
+      </div>
+    </header>
+
+    <section class="scene-copy" aria-live="polite">
+      <p class="eyebrow"><span class="tiny-line"></span> 一座城的另一面 <span class="edition" id="scene-edition">VOL. 01</span></p>
+      <h1 id="scene-title">熟悉的街角，<br><em>换个角度。</em></h1>
+      <p class="scene-location"><svg><use href="#i-pin"/></svg><span id="scene-location">CBD · 夷陵大道</span></p>
+      <p class="scene-tagline" id="scene-tagline">让一幅街景，在眼前慢慢展开。</p>
+    </section>
+
+    <div class="mood-control" role="group" aria-label="场景光线">
+      <button id="day-button" class="mood-button active" aria-pressed="true" aria-label="日光"><svg><use href="#i-sun"/></svg><span>日光</span></button>
+      <button id="night-button" class="mood-button" aria-pressed="false" aria-label="雨夜"><svg><use href="#i-moon"/></svg><span>雨夜</span></button>
+    </div>
+
+    <aside class="view-rail" aria-label="镜头视角">
+      <span class="rail-label">VIEW</span>
+      <button class="view-button active" data-view="flat" title="平面插画" aria-label="平面插画视角" aria-pressed="true"><svg><use href="#i-flat"/></svg><span>成画</span></button>
+      <button class="view-button" data-view="deep" title="展开立体街景" aria-label="展开立体街景" aria-pressed="false"><svg><use href="#i-cube"/></svg><span>入景</span></button>
+      <button class="view-button" data-view="corner" title="从街角侧看" aria-label="从街角侧看" aria-pressed="false"><svg><use href="#i-orbit"/></svg><span>转角</span></button>
+      <span class="rail-divider"></span>
+      <button class="view-button" id="capture-button" title="保存当前画面" aria-label="保存当前画面"><svg><use href="#i-camera"/></svg><span>留影</span></button>
+    </aside>
+
+    <div class="explore-hint" id="explore-hint"><span class="drag-symbol" aria-hidden="true">↔</span><span>左右拖动 · 探索街角</span></div>
+
+    <section class="control-dock" aria-label="街景播放控制">
+      <div class="dock-heading">
+        <div class="scene-caption"><span class="live-dot"></span><span id="scene-caption">CBD 街角</span><span class="caption-divider">/</span><span class="caption-secondary" id="shot-label">长焦成画</span></div>
+        <div class="technical-badge"><span id="frame-mode">ILLUSTRATED CITY</span><span class="dot-separator">·</span><span>可交互 3D</span></div>
+      </div>
+      <div class="playback-row">
+        <button id="play-button" class="play-button" title="暂停镜头" aria-label="暂停镜头" aria-pressed="true"><svg><use href="#i-pause"/></svg></button>
+        <div class="timeline-block">
+          <div class="timeline-labels"><span>一幅画<span class="timeline-arrow">→</span>一条街</span><span class="time-counter"><b id="current-time">00:00</b><span>/ 00:24</span></span></div>
+          <input id="timeline" class="timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="镜头时间轴">
+          <div class="timeline-stops" aria-hidden="true"><span>长焦压平</span><span>空间展开</span><span>转角发现</span><span>回到画中</span></div>
+        </div>
+        <button id="replay-button" class="replay-button" title="从头播放" aria-label="从头播放"><svg><use href="#i-reset"/></svg><span>重看</span></button>
+        <div class="dock-divider"></div>
+        <button id="unfold-button" class="unfold-button"><span>展开街景</span><svg><use href="#i-arrow"/></svg></button>
+      </div>
+    </section>
+    <footer class="canvas-footer"><span>宜昌Online <span class="footer-dot">/</span> 城市切片计划</span><button id="details-button">实景取意 · 插画重构 <svg><use href="#i-info"/></svg></button></footer>
+    <div id="scene-transition" class="scene-transition" aria-hidden="true"><span id="transition-text">CBD 街角</span></div>
+    <div class="loading-screen" id="loading-screen" role="status"><div class="loading-monogram">宜<span>昌</span></div><p>正在展开一座城<span class="loading-dots">…</span></p><div class="loading-track"><span></span></div><small>街角，很快相见</small></div>
+    <div class="error-screen" id="error-screen" hidden><span class="error-illustration">宜昌 · 街角幻境</span><h2>这个街角还没展开</h2><p id="error-message">请使用支持 WebGL 的浏览器，并开启硬件加速。</p><button id="retry-button">重新加载</button></div>
+    <div class="toast" id="toast" role="status"></div>
+  </main>
+
+  <dialog id="about-dialog" class="about-dialog" aria-labelledby="about-title">
+    <button class="dialog-close icon-button" id="close-about" aria-label="关闭说明"><svg><use href="#i-close"/></svg></button>
+    <p class="eyebrow">YICHANG / A DIFFERENT PERSPECTIVE</p>
+    <h2 id="about-title">一座城，不止一种看法。</h2>
+    <p class="about-lead">从熟悉的 CBD 到国贸，让街景先成为一幅画，再跟随镜头展开。看见楼宇背后的巷子，也看见街角的日常。</p>
+    <div class="about-section"><h3>怎么玩</h3><p><strong>成画 / 入景 / 转角</strong>切换构图；拖动下方时间轴逐帧探索。左右拖动画面调整观看方向，滚轮可轻微缩放。点击<strong>日光 / 雨夜</strong>改变氛围，点击<strong>留影</strong>保存当前场景。</p><p class="keyboard-help">键盘：空格播放或暂停 · ← → 前后查看 · Home 回到开场 · Esc 关闭说明</p></div>
+    <div class="about-section"><h3>这一版的还原范围</h3><p>建筑外观依据公开实景资料制作，保留 CBD 的橙色标识与竖向灯带、国贸的玻璃高塔与商业裙楼等识别特征。楼体比例、道路布局和附属店铺经过艺术化调整；这里是一组宜昌主题插画街景。</p></div>
+    <div class="about-section sources"><h3>参考与创作</h3><a href="https://www.yichangly.com/shopping/CBD.html" target="_blank" rel="noopener noreferrer">CBD 实景资料 <span>↗</span></a><a href="https://www.cn3x.com.cn/article/202510/02/c806699.html" target="_blank" rel="noopener noreferrer">国贸街景 · 三峡宜昌网 <span>↗</span></a><a href="https://www.cn3x.com.cn/article/202506/27/c763439.html" target="_blank" rel="noopener noreferrer">夷陵广场与铁路坝 · 三峡宜昌网 <span>↗</span></a><a href="https://github.com/dotslashsimran/simcraft/tree/main/skills/video/perspective-illusion" target="_blank" rel="noopener noreferrer">镜头与插画技术 · Simcraft <span>↗</span></a></div>
+    <p class="credit">基于 Three.js 与 Simcraft Perspective Illusion 改编。<br>Simcraft © 2026 Simran Sachdeva · <a href="./assets/SIMCRAFT-LICENSE.txt" target="_blank">MIT License</a> · <a href="./assets/THREE-LICENSE.txt" target="_blank">Three.js License</a></p>
+  </dialog>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

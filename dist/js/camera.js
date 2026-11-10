@@ -1,0 +1,159 @@
+/*
+ * Perspective camera and monotone timeline adapted from Simcraft.
+ * Copyright (c) 2026 Simran Sachdeva. MIT License.
+ * https://github.com/dotslashsimran/simcraft
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions: The above copyright
+ * notice and this permission notice shall be included in all copies or
+ * substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS",
+ * WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+ * TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ * LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+ * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+export const LOOP = 24000;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const radians = d => d * Math.PI / 180;
+const degrees = r => r * 180 / Math.PI;
+const cache = new Map();
+const boundPoints = new WeakMap();
+
+function createCurve(keys) {
+  const times = keys.map(k => k[0]);
+  const vals = keys.map(([,s]) => [s.x,s.y,s.zf,Math.log(s.W),Math.log(s.fov),s.H,s.el||0,s.yaw||0,s.lay||0,s.cs||1]);
+  const count=keys.length;
+  const slopes=vals[0].map((_,j) => {
+    const d=[], m=new Array(count).fill(0);
+    for(let i=0;i<count-1;i++)d.push((vals[i+1][j]-vals[i][j])/(times[i+1]-times[i]));
+    for(let i=1;i<count-1;i++)m[i]=d[i-1]*d[i]<=0?0:(d[i-1]+d[i])/2;
+    for(let i=0;i<count-1;i++){
+      if(d[i]===0){m[i]=m[i+1]=0;continue;}
+      const a=m[i]/d[i],b=m[i+1]/d[i],h=a*a+b*b;
+      if(h>9){const t=3/Math.sqrt(h);m[i]=t*a*d[i];m[i+1]=t*b*d[i];}
+    }
+    m[0]=m[count-1]=0;
+    return m;
+  });
+  return progress => {
+    const t=clamp(progress,0,1);
+    let k=0;while(k<count-2 && t>=times[k+1])k++;
+    const h=times[k+1]-times[k],u=clamp((t-times[k])/h,0,1);
+    const h00=2*u*u*u-3*u*u+1,h10=u*u*u-2*u*u+u,h01=-2*u*u*u+3*u*u,h11=u*u*u-u*u;
+    const v=vals[k].map((a,j)=>h00*a+h10*h*slopes[j][k]+h01*vals[k+1][j]+h11*h*slopes[j][k+1]);
+    return {x:v[0],y:v[1],zf:v[2],W:Math.exp(v[3]),fov:Math.exp(v[4]),H:v[5],el:v[6],yaw:v[7],lay:clamp(v[8],0,1),cs:v[9]};
+  };
+}
+
+/** One complete, deterministic 24 second camera performance. */
+export function sampleShot(progress, focus={}) {
+  const x=focus.x??0,y=focus.y??12,z=focus.zf??-12,w=focus.W??78;
+  const key=[x,y,z,w].join(',');
+  let curve=cache.get(key);
+  if(!curve){
+    const flat={x,y:y+10,zf:z,W:w*1.4,fov:2,H:-.18,el:0,yaw:0,lay:0,cs:1};
+    const deep={x:x+.5,y:Math.max(6,y*.52),zf:z-12,W:w*.92,fov:52,H:-.66,el:0,yaw:0,lay:0,cs:1};
+    const left={x:x+2,y:Math.max(5,y*.6),zf:z-10,W:w*1.27,fov:4,H:-.22,el:7,yaw:-22,lay:0,cs:1};
+    const right={x:x-3,y:Math.max(5,y*.58),zf:z-12,W:w*1.3,fov:4,H:-.25,el:9,yaw:27,lay:1,cs:1};
+    const low={...deep,y:5.2,W:w*.96,fov:48,H:-.7,yaw:3,lay:1};
+    curve=createCurve([
+      [0,flat],
+      [.09,{...flat,W:flat.W*.965}],
+      [.22,deep],
+      [.29,{...deep,W:deep.W*.97,x:deep.x+.4}],
+      [.37,left],
+      [.40,{...left,W:left.W*.98}],
+      [.47,{...left,W:w*.94,fov:38}],
+      [.535,flat],
+      [.58,{...flat,lay:1}],
+      [.615,{...flat,lay:1,W:flat.W*.97}],
+      [.715,right],
+      [.75,{...right,W:right.W*.975}],
+      [.825,{...right,W:w*.98,fov:40}],
+      [.89,low],
+      [.945,{...flat,lay:1}],
+      [.98,flat],
+      [1,flat],
+    ]);
+    if(cache.size>12)cache.clear();
+    cache.set(key,curve);
+  }
+  const p=Number.isFinite(progress)?clamp(progress,0,1):0;
+  const shot=curve(p);
+  shot.nominalW=shot.W;
+  shot.progress=p;
+  shot.heroBounds=focus.heroBounds;
+  shot.target=focus.target;
+  return shot;
+}
+
+/** Place a level camera with a shifted lens. W is horizontal at the focus plane. */
+export function placeCamera(camera, shot, aspect) {
+  const fov=clamp(shot.fov,1,105),hf=radians(fov),yaw=radians(shot.yaw||0),el=radians(shot.el||0);
+  const vt=Math.tan(hf*.5)/aspect,te=Math.tan(el);
+  camera.aspect=aspect;
+  camera.fov=degrees(2*Math.atan(vt));
+  const place=width=>{
+    const D=width*.5/Math.tan(hf*.5);
+    const x=shot.x+Math.sin(yaw)*D,z=shot.zf+Math.cos(yaw)*D,y=shot.y+D*te;
+    camera.position.set(x,y,z);
+    camera.lookAt(x-Math.sin(yaw),y,z-Math.cos(yaw));
+    /* A tight depth interval makes the kilometre-distance flat shot stable. */
+    camera.near=Math.max(.1,D-260);camera.far=D+550;
+    camera.updateProjectionMatrix();
+    camera.projectionMatrix.elements[9]=-((shot.H||0)+te/vt);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    camera.updateMatrixWorld();
+    return D;
+  };
+  let W=Math.max(5,shot.W),D;
+  if(shot.heroBounds?.length){
+    let points=boundPoints.get(shot.heroBounds);
+    if(!points){
+      points=[];
+      for(const box of shot.heroBounds)for(const x of [box.min[0],box.max[0]])for(const y of [box.min[1],box.max[1]])for(const z of [box.min[2],box.max[2]])points.push([x,y,z]);
+      boundPoints.set(shot.heroBounds,points);
+    }
+    const target=shot.target||{left:.08,right:.88,top:.12,bottom:.78};
+    const targetWidth=(target.right-target.left)*2,targetHeight=(target.bottom-target.top)*2;
+    const centerX=target.left+target.right-1,centerY=1-target.top-target.bottom;
+    const measure=()=>{
+      const m=camera.matrixWorldInverse.elements,p=camera.projectionMatrix.elements;
+      let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity,front=true;
+      for(const [x,y,z]of points){
+        const vx=m[0]*x+m[4]*y+m[8]*z+m[12],vy=m[1]*x+m[5]*y+m[9]*z+m[13],vz=m[2]*x+m[6]*y+m[10]*z+m[14];
+        if(-vz<=camera.near){front=false;continue;}
+        const sx=(p[0]*vx+p[8]*vz)/-vz,sy=(p[5]*vy+p[9]*vz)/-vz;
+        minX=Math.min(minX,sx);maxX=Math.max(maxX,sx);minY=Math.min(minY,sy);maxY=Math.max(maxY,sy);
+      }
+      return {minX,maxX,minY,maxY,front,width:maxX-minX,height:maxY-minY};
+    };
+    const fits=width=>{place(width);const b=measure();return b.front&&b.width<=targetWidth&&b.height<=targetHeight;};
+    /* Fit only the landmark's two architectural masses, never the distant city. */
+    let lo=1,hi=W;
+    for(let k=0;k<10&&!fits(hi);k++)hi*=1.5;
+    for(let k=0;k<20;k++){const mid=(lo+hi)*.5;if(fits(mid))hi=mid;else lo=mid;}
+    const zoom=shot.nominalW?clamp(shot.W/shot.nominalW,.7,1.5):1;
+    const breath=1.015+.01*Math.sin((shot.progress||0)*Math.PI*2)**2;
+    W=hi*zoom*breath;
+    D=place(W);
+    const bounds=measure();
+    /* Optical shift, not rotation, centers the landmark without keystoning. */
+    const shiftX=centerX-(bounds.minX+bounds.maxX)*.5;
+    const shiftY=centerY-(bounds.minY+bounds.maxY)*.5;
+    camera.projectionMatrix.elements[8]-=shiftX;
+    camera.projectionMatrix.elements[9]-=shiftY;
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    camera.userData.heroFrame={left:(bounds.minX+shiftX+1)*.5,right:(bounds.maxX+shiftX+1)*.5,
+      top:(1-bounds.maxY-shiftY)*.5,bottom:(1-bounds.minY-shiftY)*.5,width:W};
+  }else{
+    D=place(W);delete camera.userData.heroFrame;
+  }
+  return D;
+}

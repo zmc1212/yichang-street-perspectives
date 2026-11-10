@@ -1,0 +1,9 @@
+{
+  "name": "yichang-street-perspectives",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Illustrated perspective-illusion street scenes of Yichang CBD and Guomao",
+  "scripts": {"check": "node --check dist/js/main.js && node --check dist/js/world.js && node --check dist/js/engine.js && node --check dist/js/camera.js"},
+  "dependencies": {"three": "0.170.0"}
+}

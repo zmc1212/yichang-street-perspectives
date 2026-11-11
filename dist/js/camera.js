@@ -17,6 +17,7 @@
  * CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+import { sampleBridgeShot } from './bridge-camera.js';
 
 export const LOOP = 24000;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -53,6 +54,7 @@ function createCurve(keys) {
 
 /** One complete, deterministic 24 second camera performance. */
 export function sampleShot(progress, focus={}) {
+  if(focus.kind==='bridge')return sampleBridgeShot(progress,focus);
   const x=focus.x??0,y=focus.y??12,z=focus.zf??-12,w=focus.W??78;
   const key=[x,y,z,w].join(',');
   let curve=cache.get(key);
@@ -105,7 +107,8 @@ export function placeCamera(camera, shot, aspect) {
     camera.position.set(x,y,z);
     camera.lookAt(x-Math.sin(yaw),y,z-Math.cos(yaw));
     /* A tight depth interval makes the kilometre-distance flat shot stable. */
-    camera.near=Math.max(.1,D-260);camera.far=D+550;
+    const frontPadding=Math.max(shot.clipPadding?.front??260,D*(shot.clipPadding?.frontFraction??0));
+    camera.near=Math.max(.1,D-frontPadding);camera.far=D+(shot.clipPadding?.back??550);
     camera.updateProjectionMatrix();
     camera.projectionMatrix.elements[9]=-((shot.H||0)+te/vt);
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();

@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f5f2e9">
-  <meta name="description" content="换个角度，看见熟悉的宜昌。探索CBD与国贸的插画街景，让一幅画在镜头中展开成立体城市。">
+  <meta name="description" content="从CBD与国贸街角，到夷陵长江大桥的一江两岸。体验长焦成画、希区柯克推镜和蓝调桥梁夜景，让熟悉的宜昌在镜头中展开。">
   <title>宜昌 · 街角幻境 — 换个角度，看见宜昌</title>
   <link rel="canonical" href="https://yichang-street-perspectives.gaoronghai.chatgpt.site/">
   <meta property="og:title" content="宜昌 · 街角幻境">
-  <meta property="og:description" content="换个角度，看见熟悉的宜昌。CBD与国贸的交互插画街景。">
+  <meta property="og:description" content="夷陵大桥蓝调夜景、沿桥推镜与一江两岸，和CBD、国贸一起展开宜昌的另一面。">
   <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css">
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js","three/addons/utils/BufferGeometryUtils.js":"./vendor/BufferGeometryUtils.js"}}</script>
@@ -32,7 +32,7 @@
   </defs></svg>
   <main id="app" class="app">
     <div id="viewport" class="viewport">
-      <canvas id="gl" aria-label="宜昌CBD与国贸的交互式三维插画场景，可用下方镜头控件探索" tabindex="0"></canvas>
+      <canvas id="gl" aria-label="夷陵长江大桥与两岸的交互式三维场景，可用下方镜头控件探索" tabindex="0"></canvas>
     </div>
     <div class="edge-shade" aria-hidden="true"></div>
     <header class="topbar">
@@ -41,8 +41,9 @@
         <span class="brand-name">宜昌<span class="brand-dot">·</span>街角幻境<small>YICHANG IN PERSPECTIVE</small></span>
       </a>
       <nav class="scene-switch" aria-label="选择宜昌场景">
-        <button class="scene-tab active" data-scene="cbd" aria-pressed="true"><span class="tab-no">01</span> CBD 街角</button>
+        <button class="scene-tab" data-scene="cbd" aria-pressed="false"><span class="tab-no">01</span> CBD 街角</button>
         <button class="scene-tab" data-scene="guomao" aria-pressed="false"><span class="tab-no">02</span> 国贸广场</button>
+        <button class="scene-tab active" data-scene="bridge" aria-pressed="true"><span class="tab-no">03</span> 夷陵大桥</button>
       </nav>
       <div class="header-actions">
         <button class="icon-button" id="about-button" title="关于这座街景" aria-label="关于这座街景"><svg><use href="#i-info"/></svg></button>
@@ -81,7 +82,7 @@
       <div class="playback-row">
         <button id="play-button" class="play-button" title="暂停镜头" aria-label="暂停镜头" aria-pressed="true"><svg><use href="#i-pause"/></svg></button>
         <div class="timeline-block">
-          <div class="timeline-labels"><span>一幅画<span class="timeline-arrow">→</span>一条街</span><span class="time-counter"><b id="current-time">00:00</b><span>/ 00:24</span></span></div>
+          <div class="timeline-labels"><span id="timeline-description">一幅画<span class="timeline-arrow">→</span>一江景</span><span class="time-counter"><b id="current-time">00:00</b><span>/ 00:24</span></span></div>
           <input id="timeline" class="timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="镜头时间轴">
           <div class="timeline-stops" aria-hidden="true"><span>长焦压平</span><span>空间展开</span><span>转角发现</span><span>回到画中</span></div>
         </div>
@@ -101,9 +102,11 @@
     <button class="dialog-close icon-button" id="close-about" aria-label="关闭说明"><svg><use href="#i-close"/></svg></button>
     <p class="eyebrow">YICHANG / A DIFFERENT PERSPECTIVE</p>
     <h2 id="about-title">一座城，不止一种看法。</h2>
-    <p class="about-lead">从熟悉的 CBD 到国贸，让街景先成为一幅画，再跟随镜头展开。看见楼宇背后的巷子，也看见街角的日常。</p>
+    <p class="about-lead">从 CBD、国贸的街角，到夷陵长江大桥的一江两岸。让熟悉的城市先成为一幅画，再随着镜头慢慢展开。</p>
+    <div class="about-section"><h3>夷陵大桥 · 一江两岸</h3><p>三座白色倒 Y 形桥塔、中央成对斜拉索和红色护栏连接城市与绿山。选择<strong>成画</strong>看长焦压平，选择<strong>推镜</strong>看后方桥塔和索网展开，选择<strong>全桥</strong>看三塔与两岸。日光与蓝调夜景可随时切换。</p><p>大桥模型以主桥 936 米、120＋348＋348＋120 米跨径、23 米桥面和双向四车道为结构依据；塔高、近岸地形与楼群按照片比例重构。场景采用统一缩尺，保留主桥比例；周边环境尚非测绘复刻。</p></div>
     <div class="about-section"><h3>怎么玩</h3><p><strong>成画 / 入景 / 转角</strong>切换构图；拖动下方时间轴逐帧探索。左右拖动画面调整观看方向，滚轮可轻微缩放。点击<strong>日光 / 雨夜</strong>改变氛围，点击<strong>留影</strong>保存当前场景。</p><p class="keyboard-help">键盘：空格播放或暂停 · ← → 前后查看 · Home 回到开场 · Esc 关闭说明</p></div>
-    <div class="about-section"><h3>这一版的还原范围</h3><p>对照公开实景重新绘制建筑：CBD 的低长商场、弧形玻璃楼梯间、橙红悬挂字与竖向灯带；国贸的右后侧高塔、圆弧商业裙楼、细竖幕墙和青绿点阵塔冠。周边加入旧住宅、沿街店面与广场绿地。</p><p>建筑尺寸依据照片比例估计，街道与绿地经过构图调整。店铺细节取自不同年份的参考照片，部分为创作；这里呈现的是宜昌主题的三维插画重构。</p></div>
+    <div class="about-section"><h3>街角的还原范围</h3><p>对照公开实景重新绘制建筑：CBD 的低长商场、弧形玻璃楼梯间、橙红悬挂字与竖向灯带；国贸的右后侧高塔、圆弧商业裙楼、细竖幕墙和青绿点阵塔冠。周边加入旧住宅、沿街店面与广场绿地。</p><p>建筑尺寸依据照片比例估计，街道与绿地经过构图调整。店铺细节取自不同年份的参考照片，部分为创作；这里呈现的是宜昌主题的三维插画重构。</p></div>
+    <div class="about-section sources"><h3>大桥参考</h3><a href="https://www.hbbidcloud.cn/shengbenji/jyxx/004001/004001003/20240716/19fe53bc-3d2a-4920-8662-e325de050014.html" target="_blank" rel="noopener noreferrer">主桥结构 · 湖北省公共资源交易平台 <span>↗</span></a><a href="https://www.crec.cn/web/xwzx61/gsyw87/2025021110072140049/index.html" target="_blank" rel="noopener noreferrer">换索后实景 · 中国中铁 <span>↗</span></a><a href="https://yc.cnhubei.com/content/2022-09/17/content_15071790.html" target="_blank" rel="noopener noreferrer">大桥与两岸 · 湖北日报 <span>↗</span></a><a href="https://www.douyin.com/video/7706192304943687146" target="_blank" rel="noopener noreferrer">运镜与夜景氛围参考 · 爱你美神 <span>↗</span></a></div>
     <div class="about-section sources"><h3>参考与创作</h3><a href="https://www.yichangly.com/shopping/CBD.html" target="_blank" rel="noopener noreferrer">CBD 实景资料 <span>↗</span></a><a href="https://www.sohu.com/a/335644860_100016441" target="_blank" rel="noopener noreferrer">CBD 沿街立面 · 商户历史照片 <span>↗</span></a><a href="https://www.cn3x.com.cn/article/202510/02/c806699.html" target="_blank" rel="noopener noreferrer">国贸街景 · 三峡宜昌网 <span>↗</span></a><a href="https://www.baoyehb.com/webFrontNews/show?id=2757f712-816e-47c1-a275-bc5ac95ea1ec" target="_blank" rel="noopener noreferrer">国贸建筑体量 · 施工方资料 <span>↗</span></a><a href="https://www.cn3x.com.cn/article/202506/27/c763439.html" target="_blank" rel="noopener noreferrer">夷陵广场与铁路坝 · 三峡宜昌网 <span>↗</span></a><a href="https://github.com/dotslashsimran/simcraft/tree/main/skills/video/perspective-illusion" target="_blank" rel="noopener noreferrer">镜头与插画技术 · Simcraft <span>↗</span></a></div>
     <p class="credit">基于 Three.js 与 Simcraft Perspective Illusion 改编。<br>Simcraft © 2026 Simran Sachdeva · <a href="./assets/SIMCRAFT-LICENSE.txt" target="_blank">MIT License</a> · <a href="./assets/THREE-LICENSE.txt" target="_blank">Three.js License</a></p>
   </dialog>

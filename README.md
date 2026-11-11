@@ -31,7 +31,9 @@ dimensions, local streets and shore details are artistic approximations.
 - `dist/js/landmarks/cbd.js`: photograph-informed CBD facade and curved stairs.
 - `dist/js/landmarks/guomao.js`: Guomao tower, rounded podium and LED crown.
 - `dist/js/camera.js`: level camera, lens shift, monotone timeline, framing.
-- `dist/js/bridge-world.js`: three-tower bridge, four-lane deck and both banks.
+- `dist/js/bridge-world.js`: bridge scene integration, material batching and traffic.
+- `dist/js/bridge-structure.js`: curved Y pylons, stays, piers, deck and approaches.
+- `dist/js/bridge-context.js`: wooded terrain, city blocks, riverfront and docks.
 - `dist/js/bridge-camera.js`: near-pylon dolly zoom and whole-bridge trajectory.
 - `dist/js/engine.js`: four scene passes and a final illustration composite;
   the bridge adds a lower-resolution planar reflection pass, ripple distortion
@@ -58,6 +60,11 @@ validates the JavaScript modules. In the managed environment, preview with
 - China Railway reopening report / axial photograph: https://www.crec.cn/web/xwzx61/gsyw87/2025021110072140049/index.html
 - Yiling bridge aerial photograph: https://yc.cnhubei.com/content/2022-09/17/content_15071790.html
 - Riverfront park photograph: https://news.hubeidaily.net/mobile/c_1613460.html
+- Bridge cross section and cable quantities: https://hbtba.com/pro/pro.php?id=8eafc757-cda9-4de2-9a1c-762ca838bcc0
+- Moji Mountain official landscape photographs: https://ylj.yichang.gov.cn/content-43955-959914-1.html
+- Moji Mountain park and topography: https://ylj.yichang.gov.cn/content-43959-653490-1.html
+- North approach and urban fabric, July 2026: https://www.cn3x.com.cn/article/202607/04/c925430.html
+- Hotel / Wanda / visitor-centre relationship: https://www.ihg.com/crowneplaza/hotels/cn/zh/yichang/yihry/hoteldetail
 - User-supplied motion / style reference, also supplied as a 10-second MP4:
   https://www.douyin.com/video/7706192304943687146
 
@@ -91,6 +98,42 @@ The river uses a mirrored camera with oblique water-plane clipping based on
 Three.js r170 Reflector (MIT). It renders the actual towers and surroundings
 at 65% of the drawing buffer dimensions and adds restrained periodic ripples.
 It does not depend on an externally hosted image, map tile, video or model.
+
+## Bridge model reconstruction, version 4
+
+This revision addresses the scene's identity and physical construction. The
+bridge now has a continuously curved Y silhouette, longer lower forks and a
+shorter upper stem, tapered thickness, blue-grey recessed channels, white lips,
+and a notched crown. Its footings are elongated chamfered forms with red-brown
+waterline collars. Side-span auxiliary piers are present. Cable sleeves and
+anchors, four-lane markings, directional arrows, sidewalk paving and curved
+lamp arms remain visible in the close bridge-axis view. The red double rails
+line the carriageway, with dense silver-grey pedestrian balustrades outside
+the sidewalks. The approach roads carry the same surface and detail layers.
+
+The opposite bank now keeps the steep, continuous Moji Mountain landform.
+The previous broad camera-clearance lowland has been removed: only the bridge
+road cut and the narrow road valley shape the terrain. Overlapping, varied
+tree crowns form a continuous forest. The city bank uses manually grouped
+residential slabs, low commercial podiums, older courtyard blocks and a varied
+second-line skyline. The downstream waterfront includes a broad Wanda mass,
+the hotel volume, passenger-service buildings, gangways, floating docks and
+six moored tourist vessels. Stepped embankments, promenade furniture and local
+streets connect the buildings to the water.
+
+These are original three-dimensional models informed by photographs. Main
+spans, deck width and cable count follow the cited engineering documents;
+the tower elevations, building footprints and local road alignments are
+photographic estimates. The official 217 m Moji summit figure is an altitude
+above sea level, not a height above the modeled river. No surveyed GIS data
+or externally hosted 3D model is presented as part of this reconstruction.
+
+The camera was moved to respect the restored hills. The road-axis view moves
+into the main span and frames the middle tower with a 90-degree horizontal
+lens; even the tested widest viewport and zoom-out limit stay inside the
+bank tower. Dragging is narrower there and broader in the whole-bridge view.
+The original perspective illusion, day/night choice and other landmark scenes
+remain.
 
 ## Landmark reconstruction revision
 
@@ -127,16 +170,21 @@ Static geometry is batched without mixed-index warnings; estimated texture
 storage including mipmaps is about 33 MiB per scene. These are CPU checks and
 memory estimates, not measured browser frame-rate claims.
 
-For the bridge revision, 162 preset/aspect/drag/zoom combinations and 363
-samples across the default loop were ray-tested against the final scene
-geometry. No tested camera was inside terrain, bridge or building geometry;
-neither the near pylon top nor its central body was hidden by other geometry.
-The bridgehead lowland was widened after this check exposed foreground hill
-occlusion. Pylon foundations can naturally fall behind the deck or riverbank.
-Flat, along-bridge and whole-bridge night compositions were also inspected
-with CPU Blender renders from the site's actual meshes and camera projection.
-Their offline water reflection and lighting are composition aids; they do not
-certify the WebGL postprocessing shader or a browser frame rate.
+For the version 4 bridge model, an initial 81 preset/aspect/allowed-drag/zoom
+combinations and 123 default-loop samples checked the restored terrain. Visual
+review then exposed sparse forest cover, empty city fabric and an undesirable
+approach-road viewpoint. Those were rebuilt. The final camera was checked at
+27 axis/aspect/allowed-drag/zoom combinations and 30 anchor-transition samples:
+none entered terrain or a solid object, and no sampled pylon top or body was
+hidden. The furthest tested axial camera is about 318.4 m from the middle
+tower, inside the bank tower at 348 m. Foundations naturally fall behind the
+deck or riverbank in some views.
+
+Daylight CPU Blender renders use the site's actual meshes and camera
+projection, including an identical-camera comparison with version 3. The
+comparison and final bridge-axis view are in `docs/previews/`. These renders
+inspect geometry and composition, not the live ink shader, GPU performance
+or exact WebGL lighting.
 
 The live site requires WebGL 2. This is a stylized composition rather than a
 surveyed geographic twin. Simcraft's original offline video renderer has

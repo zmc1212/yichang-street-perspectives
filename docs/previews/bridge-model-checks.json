@@ -1,0 +1,23 @@
+{
+  "sourceHashes": {
+    "bridge-world.js": "c1ba660351f2ce7dfe2870a515fb7825626364affd7f22d5e1af114dbe52f34e",
+    "bridge-structure.js": "23c8b5eeab91559f45b11444c40246c6474a303823654675ffd941d0d3540df8",
+    "bridge-context.js": "420dc49be096f86edc704f4464982f87345b1275627b3b0c8c6c9eaf7fae3b4a",
+    "bridge-camera.js": "e9ba6aeda30ace192e41a56b8edf6488b2b5843d0f2151b7713aaa08b57ef2bd",
+    "camera.js": "a97a11e7f58b4b7fc19f8cfeb3f9949fa3c98ec5a0b00149469c5ddd3e25baaa"
+  },
+  "meshes": 188,
+  "instanceCount": 31668,
+  "triangleCount": 1215668,
+  "materials": 133,
+  "textures": 24,
+  "validation": {
+    "method": "CPU Three.js geometry and camera ray checks; offline Blender composition renders",
+    "initial_camera_samples": 204,
+    "final_axis_and_transition_samples": 57,
+    "final_camera_solid_collisions": 0,
+    "final_pylon_top_or_body_obstructions": 0,
+    "runtime_webgl_visual_qa": "unavailable; managed cloud browser reports WebGL disabled",
+    "same_camera_overview_comparison": true
+  }
+}

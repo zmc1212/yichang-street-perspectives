@@ -136,7 +136,8 @@ function updateUi(now, force = false) {
 }
 function currentShot() {
   const shot = sampleShot(state.progress, world.focus);
-  shot.yaw = (shot.yaw || 0) + state.yaw;
+  const yawLimit=shot.maxYaw??32;
+  shot.yaw = (shot.yaw || 0) + clamp(state.yaw,-yawLimit,yawLimit);
   shot.W *= state.zoom;
   return shot;
 }
@@ -296,7 +297,7 @@ canvas.addEventListener('pointermove', (event) => {
   const dx = event.clientX - drag.x;
   if (Math.abs(dx) > 4) { drag.moved = true; setPlaying(false); markInteraction(); }
   if (drag.moved) {
-    const maxYaw=state.sceneId==='bridge'?14:32;
+    const maxYaw=state.sceneId==='bridge'?(sampleShot(state.progress,world.focus).maxYaw??14):32;
     state.yaw = clamp(drag.yaw - dx / Math.max(320, canvas.clientWidth) * 65, -maxYaw, maxYaw);
     state.dirty = true;
     updateUi(performance.now(), true);

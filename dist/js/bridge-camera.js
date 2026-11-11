@@ -25,6 +25,7 @@ const cache = new WeakMap();
 
 /* All positions below are already in the world's final 0.35 scale. */
 const NEAR_BOUNDS = [{min: [117, 0, -5.4], max: [127, 38.5, 5.4]}];
+const CENTRAL_BOUNDS = {min: [-4.2, 0, -6.3], max: [4.2, 45.255, 6.3]};
 const FULL_BOUNDS = [
   {min: [-164.5, 7.175, -4.2], max: [164.5, 11.9, 4.2]},
   {min: [-124.6, 0, -5.6], max: [-119, 38.5, 5.6]},
@@ -34,7 +35,7 @@ const FULL_BOUNDS = [
 const NEAR_TARGET = {left: .18, right: .84, top: .13, bottom: .76};
 const FULL_TARGET = {left: .09, right: .91, top: .14, bottom: .79};
 const CLIP_PADDING = {front: 900, frontFraction: .85, back: 1700};
-const FIELDS = ['y', 'W', 'fov', 'H', 'el', 'yaw', 'overview'];
+const FIELDS = ['y', 'W', 'fov', 'H', 'el', 'yaw', 'overview', 'anchor'];
 const LOG_FIELDS = new Set(['W', 'fov']);
 
 /** Fritsch-Carlson-limited Hermite interpolation without overshoot. */
@@ -105,16 +106,16 @@ function makeRig(focus) {
   const wideY = focus.y ?? 25;
 
   /* The near pylon, not the span, remains the first dolly-zoom's size anchor. */
-  const flat = {y: 17.5, W: 116, fov: 2, H: -.15, el: 0, yaw: 68, overview: 0};
-  const reveal = {...flat, y: 11.5, fov: 28};
-  const axis = {...flat, y: 10, fov: 50, H: -.55, yaw: 88};
-  const wideFlat = {y: wideY, W: wideW, fov: 4, H: -.18, el: 10, yaw: 39, overview: 1};
+  const flat = {y: 17.5, W: 116, fov: 2, H: -.15, el: 8, yaw: 48, overview: 0, anchor: 0};
+  const reveal = {...flat, y: 11.5, fov: 28, el: 5};
+  const axis = {...flat, y: 10, fov: 90, H: -.55, el: 0, yaw: 88.5, anchor: 1};
+  const wideFlat = {y: wideY, W: wideW, fov: 4, H: -.18, el: 10, yaw: 39, overview: 1, anchor: 0};
   const wideDeep = {...wideFlat, fov: 38, el: 12};
-  const highNear = {...axis, y: 13, fov: 43, H: -.2, el: 12, yaw: 70};
-  /* Stay near the bridge axis on the reverse side: the true north hillside
-   * rises behind this bank, so a large orbit would put it in front of the tower. */
-  const reverseFlat = {y: 17, W: 260, fov: 4, H: -.18, el: 16, yaw: 100, overview: .64};
-  const reverseDeep = {...reverseFlat, fov: 35, el: 14};
+  const highNear = {...axis, y: 13, fov: 43, H: -.2, el: 22, yaw: 48, anchor: 0};
+  /* The downstream river views respect the wooded upstream bank. The model
+   * keeps its actual hill mass; the camera does not pass through that mass. */
+  const reverseFlat = {y: 17, W: 260, fov: 4, H: -.18, el: 22, yaw: 15, overview: .64, anchor: 0};
+  const reverseDeep = {...reverseFlat, fov: 35, el: 22};
   const curve = createCurve([
     [0, flat],
     [.065, flat],
@@ -164,26 +165,35 @@ export function sampleBridgeShot(progress, focus = DEFAULT_FOCUS) {
   const p = Number.isFinite(progress) ? clamp(progress, 0, 1) : 0;
   const shot = rig.curve(p);
   const mix = clamp(shot.overview, 0, 1);
-  shot.x = lerp(rig.nearX, rig.fullX, mix);
+  // Move into the main span for the road-axis view. Its subject becomes the
+  // middle pylon, so the foreground is the bridge deck rather than a hill cut.
+  const anchor = clamp(shot.anchor, 0, 1);
+  const heroUnion = anchor === 0 ? rig.nearUnion : {
+    min: rig.nearUnion.min.map((v, i) => lerp(v, CENTRAL_BOUNDS.min[i], anchor)),
+    max: rig.nearUnion.max.map((v, i) => lerp(v, CENTRAL_BOUNDS.max[i], anchor)),
+  };
+  shot.x = lerp(lerp(rig.nearX, 0, anchor), rig.fullX, mix);
   shot.zf = lerp(rig.nearZ, rig.fullZ, mix);
   shot.lay = 0;
   shot.cs = 1;
   shot.nominalW = shot.W;
   shot.progress = p;
   shot.sceneKind = 'bridge';
-  shot.view = mix > .15 || shot.el > 4 ? 'corner' : shot.fov < 12 ? 'flat' : 'deep';
+  shot.view = shot.fov < 12 && mix < .15 ? 'flat' : mix > .15 || shot.el > 10 ? 'corner' : 'deep';
+  const axial=(1-mix)*clamp((shot.fov-25)/20,0,1)*clamp((8-shot.el)/8,0,1)*clamp((shot.yaw-75)/12,0,1);
+  shot.maxYaw=lerp(8+6*mix,1.3,axial);
   shot.clipPadding = CLIP_PADDING;
 
   if (mix === 0) {
-    shot.heroBounds = rig.nearBounds;
+    shot.heroBounds = anchor === 0 ? rig.nearBounds : [heroUnion];
     shot.target = rig.nearTarget;
   } else if (mix === 1) {
     shot.heroBounds = rig.fullBounds;
     shot.target = rig.fullTarget;
   } else {
     shot.heroBounds = rig.fullBounds.map(box => ({
-      min: box.min.map((value, axis) => lerp(rig.nearUnion.min[axis], value, mix)),
-      max: box.max.map((value, axis) => lerp(rig.nearUnion.max[axis], value, mix)),
+      min: box.min.map((value, axis) => lerp(heroUnion.min[axis], value, mix)),
+      max: box.max.map((value, axis) => lerp(heroUnion.max[axis], value, mix)),
     }));
     shot.target = {};
     for (const side of ['left', 'right', 'top', 'bottom']) {

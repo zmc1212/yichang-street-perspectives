@@ -38,6 +38,7 @@ dimensions, local streets and shore details are artistic approximations.
 - `dist/js/engine.js`: four scene passes and a final illustration composite;
   the bridge adds a lower-resolution planar reflection pass, ripple distortion
   and softer ink.
+- `dist/js/surface-pass.js`: stable water coverage and inkless-surface metadata.
 - `dist/js/main.js`: interaction, scene lifecycle and deterministic timing.
 - `dist/style.css`, `dist/index.html`: UI and responsive composition.
 - `dist/vendor`: pinned local Three.js 0.170.0 and geometry utilities.
@@ -47,6 +48,7 @@ This is a buildless static site; all runtime dependencies are local. Run
 `npm install` only to restore development dependencies. `npm run check`
 validates the JavaScript modules. In the managed environment, preview with
 `sites-preview start /workspace/sites/yichang-street-perspectives`.
+Run `npm run verify:water` for the bridge camera's Float32 numerical regression.
 
 ## Visual references
 
@@ -134,6 +136,45 @@ lens; even the tested widest viewport and zoom-out limit stay inside the
 bank tower. Dragging is narrower there and broader in the whole-bridge view.
 The original perspective illusion, day/night choice and other landmark scenes
 remain.
+
+## Water and temporal rendering fix, version 5
+
+A user screenshot exposed horizontal river bands and brightness jumps around
+the 19–20 second dolly. The former shader identified water using a reconstructed
+world-height tolerance. As the near plane fell to 0.1 at long camera distance,
+24-bit depth and Float32 inverse-projection error made actual river pixels
+fail that tolerance, alternately enabling and disabling their reflections.
+
+Water identity now comes from the alpha channel of actual visible water
+fragments in the multisampled color buffer. The water stays opaque for depth
+testing; the final canvas is also opaque. Its world position is computed by
+analytically intersecting the shifted camera ray with the river plane, and
+water is exempt from ground hatching and ink. Neither the water mask nor the
+reflection lookup depends on a recovered-height threshold. The bridge near
+plane additionally has a distance-proportional floor while preserving 0.1
+for the closest mobile bridge-axis view.
+
+Opaque tree crowns had also been hidden from the normal/depth, albedo and
+shadow helper passes solely to avoid ink. They now remain in those passes;
+normal-buffer alpha marks them as inkless. Only transparent, non-depth-writing
+overlays are excluded. The reflection pass retains its separate alpha coverage
+and continues to hide the river itself. No extra full-scene pass is added.
+
+The regression checks 42 camera/aspect configurations and 6,188 river samples.
+It reproduces the old 19.728-second fault in 307 of 1,481 samples (20.73%).
+With the new near-plane floor, none of the checked samples fails the old
+tolerance; the actual new shader no longer uses that tolerance at all. The
+analytic Float32 water position differs from independent double-precision
+plane intersections by at most 0.00101 scene units in XZ. Camera composition
+is unchanged to numerical precision. A separate 675-ray bridge-structure
+check confirmed no additional foreground clipping with the chosen near floor.
+
+Actual Three.js r170 shader hooks and material states were also checked:
+surface alpha is written after OPAQUE, opaque foliage is retained, and the
+original materials are restored between passes. These are numerical and
+material-contract checks. The managed preview again reported WebGL disabled
+before a rendering context could be created, so GPU visual confirmation is
+still unavailable. The older Blender model images do not validate this fix.
 
 ## Landmark reconstruction revision
 

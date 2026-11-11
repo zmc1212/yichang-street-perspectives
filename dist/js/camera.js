@@ -108,7 +108,8 @@ export function placeCamera(camera, shot, aspect) {
     camera.lookAt(x-Math.sin(yaw),y,z-Math.cos(yaw));
     /* A tight depth interval makes the kilometre-distance flat shot stable. */
     const frontPadding=Math.max(shot.clipPadding?.front??260,D*(shot.clipPadding?.frontFraction??0));
-    camera.near=Math.max(.1,D-frontPadding);camera.far=D+(shot.clipPadding?.back??550);
+    const minNear=Math.max(shot.clipPadding?.minNear??.1,D*(shot.clipPadding?.minNearFraction??0));
+    camera.near=Math.max(minNear,D-frontPadding);camera.far=D+(shot.clipPadding?.back??550);
     camera.updateProjectionMatrix();
     camera.projectionMatrix.elements[9]=-((shot.H||0)+te/vt);
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();

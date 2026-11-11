@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildBridgeContext } from './bridge-context.js';
 import { buildBridgeStructure } from './bridge-structure.js';
+import { markWaterMaterial } from './surface-pass.js';
 
 /**
  * Original Yiling Yangtze Bridge scene, reconstructed from exterior photographs.
@@ -70,7 +71,7 @@ export function createBridgeWorld(){
     }
   });
   waterTex.wrapS=waterTex.wrapT=THREE.RepeatWrapping;waterTex.repeat.set(120,120);
-  const waterMat=customMaterial({map:waterTex,color:'#5c7c80'});
+  const waterMat=markWaterMaterial(customMaterial({map:waterTex,color:'#5c7c80'}));
   const water=plane(24000,24000,0,0,0,waterMat,0,group,false);water.rotation.x=-Math.PI/2;water.receiveShadow=true;
 
   // Photograph-informed components share the same metre coordinates and batching.

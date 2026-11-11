@@ -34,7 +34,9 @@ const FULL_BOUNDS = [
 ];
 const NEAR_TARGET = {left: .18, right: .84, top: .13, bottom: .76};
 const FULL_TARGET = {left: .09, right: .91, top: .14, bottom: .79};
-const CLIP_PADDING = {front: 900, frontFraction: .85, back: 1700};
+// Keep precision during the long-to-wide transition without clipping close
+// bridge-deck detail. Water identity does not depend on this depth interval.
+const CLIP_PADDING = {front: 900, frontFraction: .85, back: 1700, minNear: .1, minNearFraction: .0025};
 const FIELDS = ['y', 'W', 'fov', 'H', 'el', 'yaw', 'overview', 'anchor'];
 const LOG_FIELDS = new Set(['W', 'fov']);
 

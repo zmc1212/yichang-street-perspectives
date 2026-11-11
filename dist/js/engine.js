@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { placeCamera } from './camera.js';
+import { createInklessNormalMaterial, depthlessOverlays } from './surface-pass.js';
 export { sampleShot, LOOP } from './camera.js';
 
 const VERTEX=`varying vec2 vUv;
@@ -14,6 +15,7 @@ const FRAGMENT=`
 uniform sampler2D tColor,tNormal,tDepth,tShadow,tAlbedo,tReflection;
 uniform mat4 invVP,VP,reflectionVP;
 uniform mat3 camRotation;
+uniform vec4 projectionLens;
 uniform vec3 cameraPositionWorld,sunDirection;
 uniform vec2 resolution;
 uniform float cameraNear,cameraFar,night,time,river,waterLevel,hazeNear,hazeFar;
@@ -23,6 +25,10 @@ float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(ha
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+17.1;a*=.5;}return v;}
 float linearDepth(float d){return cameraNear*cameraFar/(cameraFar-d*(cameraFar-cameraNear));}
 vec3 worldPoint(vec2 uv,float d){vec4 p=invVP*vec4(uv*2.-1.,d*2.-1.,1.);return p.xyz/p.w;}
+vec3 worldRay(vec2 uv){
+  vec2 ndc=uv*2.-1.;
+  return normalize(camRotation*vec3((ndc+projectionLens.zw)/projectionLens.xy,-1.));
+}
 vec3 toSRGB(vec3 c){return mix(c*12.92,1.055*pow(max(c,vec3(0.)),vec3(1./2.4))-.055,step(vec3(.0031308),c));}
 vec3 skyAt(vec3 direction){
   float e=direction.y;
@@ -43,18 +49,24 @@ vec3 skyAt(vec3 direction){
 float edges(vec2 uv,float radius,float colorDensity,out float colorEdge){
   vec2 px=radius/resolution;
   float dc=texture2D(tDepth,uv).r,zc=linearDepth(dc);
-  vec3 nc=texture2D(tNormal,uv).xyz*2.-1.,ac=texture2D(tAlbedo,uv).rgb;
-  bool sc=dc>.999999;
+  vec4 normalSample=texture2D(tNormal,uv);
+  vec3 nc=normalSample.xyz*2.-1.,ac=texture2D(tAlbedo,uv).rgb;
+  bool sc=normalSample.a<.25;
   float e=0.;colorEdge=0.;
+  if(!sc&&normalSample.a<.75)return 0.;
   for(int k=0;k<4;k++){
     float a=float(k)*.785398;vec2 o=vec2(cos(a),sin(a))*px;
     float d1=texture2D(tDepth,uv+o).r,d2=texture2D(tDepth,uv-o).r;
-    bool s1=d1>.999999,s2=d2>.999999;
-    if(sc!=s1||sc!=s2){e=1.;continue;}
+    vec4 normal1=texture2D(tNormal,uv+o),normal2=texture2D(tNormal,uv-o);
+    bool s1=normal1.a<.25,s2=normal2.a<.25;
+    if(sc!=s1||sc!=s2){
+      if(normalSample.a>.75||normal1.a>.75||normal2.a>.75)e=1.;
+      continue;
+    }
     if(sc)continue;
     float z1=linearDepth(d1),z2=linearDepth(d2);
     e=max(e,smoothstep(.0008,.004,abs(z1+z2-2.*zc)/max(zc,1.)));
-    vec3 n1=texture2D(tNormal,uv+o).xyz*2.-1.,n2=texture2D(tNormal,uv-o).xyz*2.-1.;
+    vec3 n1=normal1.xyz*2.-1.,n2=normal2.xyz*2.-1.;
     e=max(e,smoothstep(.20,.48,1.-min(dot(nc,n1),dot(nc,n2))));
     vec3 a1=texture2D(tAlbedo,uv+o).rgb,a2=texture2D(tAlbedo,uv-o).rgb;
     colorEdge=max(colorEdge,smoothstep(.12,.24,max(length(ac-a1),length(ac-a2)))*colorDensity);
@@ -63,10 +75,21 @@ float edges(vec2 uv,float radius,float colorDensity,out float colorEdge){
 }
 void main(){
   float d=texture2D(tDepth,vUv).r;
-  bool isSky=d>.999999;
+  vec4 normalSample=texture2D(tNormal,vUv),colorSample=texture2D(tColor,vUv);
+  bool isSky=normalSample.a<.25;
   vec3 p=worldPoint(vUv,d);
-  vec3 c=texture2D(tColor,vUv).rgb;
-  vec3 normalView=texture2D(tNormal,vUv).xyz*2.-1.;
+  vec3 c=colorSample.rgb;
+  vec3 ray=worldRay(vUv),waterPoint=p;
+  float waterCoverage=river*clamp(1.-colorSample.a,0.,1.);
+  // This mask comes from visible water fragments, with the color pass's MSAA.
+  // Solve the water plane analytically: depth quantization cannot change its
+  // material identity or turn rows of reflections on and off during a dolly.
+  if(waterCoverage>.001&&ray.y<-.000001){
+    waterPoint=cameraPositionWorld+ray*((waterLevel-cameraPositionWorld.y)/ray.y);
+    waterPoint.y=waterLevel;
+    if(waterCoverage>.999)p=waterPoint;
+  }else{waterCoverage=0.;}
+  vec3 normalView=normalSample.xyz*2.-1.;
   vec3 normalWorld=normalize(camRotation*normalView);
   float footprint=length(fwidth(p));
   float colorDensity=1.-smoothstep(.09,.34,footprint);
@@ -74,20 +97,19 @@ void main(){
   float radius=clamp(resolution.x/1350.,.65,1.35);
   float edge=edges(vUv,radius,colorDensity,colorEdge);
   if(isSky){
-    vec3 farPoint=worldPoint(vUv,1.);
-    c=skyAt(normalize(farPoint-cameraPositionWorld));
+    c=skyAt(ray);
   }else{
     float light=texture2D(tShadow,vUv).r;
     vec3 an=abs(normalWorld);
     float threshold=an.y>.7?.36:.62;
     float shade=1.-smoothstep(threshold-.055,threshold+.055,light);
-    c*=mix(vec3(1.),mix(vec3(.73,.79,.84),vec3(.60,.70,.87),night),shade);
+    c*=mix(vec3(1.),mix(vec3(.73,.79,.84),vec3(.60,.70,.87),night),shade*(1.-waterCoverage));
     vec2 surface=an.y>.7?p.xz:(an.x>an.z?p.zy:p.xy);
     float hatch=(surface.x+surface.y)*6.;
     float fw=fwidth(hatch);
     float line=1.-smoothstep(.0,fw*1.25+.08,abs(fract(hatch)-.5)-.26);
     float castOnly=smoothstep(.12,.24,dot(normalWorld,sunDirection));
-    float hatchStrength=shade*castOnly*(1.-smoothstep(.13,.35,fw));
+    float hatchStrength=shade*castOnly*(1.-smoothstep(.13,.35,fw))*(1.-waterCoverage)*step(.75,normalSample.a);
     c=mix(c,c*vec3(.66,.70,.77),line*hatchStrength*mix(.43,.08,river));
 
     /* World anchored puddles and restrained, fourteen-step screen reflections. */
@@ -119,23 +141,24 @@ void main(){
     }
     /* One planar reflection pass supplies the actual towers, cables and city.
        Small world-space ripples distort the image instead of painting fake towers. */
-    if(river>.5&&normalWorld.y>.92&&abs(p.y-waterLevel)<.12){
-      vec3 view=normalize(p-cameraPositionWorld);
+    if(waterCoverage>.001){
+      vec3 view=normalize(waterPoint-cameraPositionWorld);
       vec3 reflectedDirection=reflect(view,vec3(0.,1.,0.));
-      vec4 projected=reflectionVP*vec4(p,1.);
+      vec4 projected=reflectionVP*vec4(waterPoint,1.);
       vec2 uv=projected.xy/projected.w*.5+.5;
       float cycle=time*6.28318530718/24.;
-      float wave=sin(p.z*.31+p.x*.045+cycle*3.)*.55+sin(p.z*.67-p.x*.09-cycle*2.)*.25;
-      vec2 ripple=vec2(wave*.0016,sin(p.x*.13+p.z*.18+cycle)*.00055);
+      float wave=sin(waterPoint.z*.31+waterPoint.x*.045+cycle*3.)*.55+sin(waterPoint.z*.67-waterPoint.x*.09-cycle*2.)*.25;
+      vec2 ripple=vec2(wave*.0016,sin(waterPoint.x*.13+waterPoint.z*.18+cycle)*.00055);
       vec4 a=texture2D(tReflection,uv+ripple),b=texture2D(tReflection,uv+ripple+vec2(.0011,0.));
       vec4 reflectedImage=(a+b)*.5;
       float valid=step(.002,uv.x)*step(uv.x,.998)*step(.002,uv.y)*step(uv.y,.998)*step(0.,projected.w);
       vec3 reflection=mix(skyAt(reflectedDirection)*.70,reflectedImage.rgb,reflectedImage.a*valid);
       float fresnel=.30+.60*pow(1.-max(dot(-view,vec3(0.,1.,0.)),0.),3.);
       vec3 water=mix(vec3(.055,.17,.19),vec3(.007,.025,.065),night);
-      c=mix(mix(water,c,.27),reflection,clamp(fresnel+.16*night,.32,.88));
+      vec3 waterColor=mix(mix(water,c,.27),reflection,clamp(fresnel+.16*night,.32,.88));
       float crest=pow(max(0.,wave),9.);
-      c+=crest*mix(vec3(.03,.06,.055),vec3(.008,.012,.022),night)*(1.-smoothstep(.7,2.5,footprint));
+      waterColor+=crest*mix(vec3(.03,.06,.055),vec3(.008,.012,.022),night)*(1.-smoothstep(.7,2.5,footprint));
+      c=mix(c,waterColor,waterCoverage);
     }
     float haze=smoothstep(hazeNear,hazeFar,length(p.xz))*mix(.10,.24,night);
     c=mix(c,mix(mix(vec3(.61,.64,.61),vec3(.045,.07,.13),night),mix(vec3(.39,.55,.60),vec3(.023,.031,.075),night),river),haze);
@@ -144,7 +167,7 @@ void main(){
   edge=max(smoothstep(.25,.78,edge),smoothstep(.30,.75,colorEdge)*ground);
   vec3 ink=mix(vec3(.025,.045,.05),vec3(.003,.009,.02),night);
   float inkAmount=mix(mix(.61,.66,night),.17,river);
-  if(river>.5&&normalWorld.y>.92&&abs(p.y-waterLevel)<.12)inkAmount*=.14;
+  inkAmount*=1.-waterCoverage;
   c=mix(c,ink,edge*inkAmount);
   if(night>.01){
     vec3 glow=vec3(0.);
@@ -192,11 +215,12 @@ export function createStage(canvas) {
   const mirrorView=new THREE.Vector3(),mirrorTarget=new THREE.Vector3(),mirrorLook=new THREE.Vector3();
   const mirrorRotation=new THREE.Matrix4(),mirrorPlane=new THREE.Plane(),clipPlane=new THREE.Vector4(),clipQ=new THREE.Vector4();
   const normalMaterial=new THREE.MeshNormalMaterial({side:THREE.DoubleSide});
+  const inklessNormalMaterial=createInklessNormalMaterial();
   const shadowMaterial=new THREE.MeshLambertMaterial({color:'#ffffff',side:THREE.DoubleSide});
   const uniforms={
     tColor:{value:colorRT.texture},tNormal:{value:normalRT.texture},tDepth:{value:normalRT.depthTexture},
     tShadow:{value:shadowRT.texture},tAlbedo:{value:albedoRT.texture},tReflection:{value:reflectionRT.texture},
-    invVP:{value:new THREE.Matrix4()},VP:{value:new THREE.Matrix4()},reflectionVP:{value:new THREE.Matrix4()},camRotation:{value:new THREE.Matrix3()},
+    invVP:{value:new THREE.Matrix4()},VP:{value:new THREE.Matrix4()},reflectionVP:{value:new THREE.Matrix4()},camRotation:{value:new THREE.Matrix3()},projectionLens:{value:new THREE.Vector4()},
     cameraPositionWorld:{value:new THREE.Vector3()},sunDirection:{value:new THREE.Vector3()},
     resolution:{value:new THREE.Vector2(1,1)},cameraNear:{value:.1},cameraFar:{value:5000},night:{value:0},time:{value:0},
     river:{value:0},waterLevel:{value:0},hazeNear:{value:70},hazeFar:{value:180},
@@ -212,6 +236,7 @@ export function createStage(canvas) {
   function prepareAlbedo(){
     clearFlatMaterials();
     if(!world)return;
+    const inkless=new Set([...(world.noInk||[]),...(world.glow||[]),...(world.water||[])]);
     const mats=new Map();
     const make=m=>{
       if(mats.has(m))return mats.get(m);
@@ -223,7 +248,9 @@ export function createStage(canvas) {
     world.group.traverse(o=>{
       if(!o.isMesh)return;
       const original=o.material;
-      albedoPairs.push({mesh:o,original,basic:Array.isArray(original)?original.map(make):make(original)});
+      const surfaceNormal=inkless.has(o)?inklessNormalMaterial:normalMaterial;
+      albedoPairs.push({mesh:o,original,basic:Array.isArray(original)?original.map(make):make(original),
+        normal:Array.isArray(original)?original.map(()=>surfaceNormal):surfaceNormal});
     });
   }
   function setWorld(next){
@@ -307,10 +334,17 @@ export function createStage(canvas) {
     renderer.setClearColor(0x000000,1);renderer.setRenderTarget(colorRT);renderer.clear();renderer.render(scene,camera);
     renderRiverReflection();
     renderer.setClearColor(0x000000,1);
-    const restoreNoInk=hidden(world.noInk);
-    scene.overrideMaterial=normalMaterial;
+    const isRiver=uniforms.river.value>.5;
+    const restoreNoInk=hidden(isRiver?depthlessOverlays([...(world.noInk||[]),...(world.glow||[])]):world.noInk);
+    scene.overrideMaterial=isRiver?null:normalMaterial;
+    if(isRiver)for(const p of albedoPairs)p.mesh.material=p.normal;
+    // Clear alpha is sky; half alpha is visible, inkless geometry. Trees must
+    // retain their depth instead of exposing the slope or river behind them.
+    renderer.setClearColor(0x000000,0);
     renderer.setRenderTarget(normalRT);renderer.clear();renderer.render(scene,camera);
-    const restoreGlow=hidden(world.glow);
+    if(isRiver)for(const p of albedoPairs)p.mesh.material=p.original;
+    renderer.setClearColor(0x000000,1);
+    const restoreGlow=hidden(isRiver?[]:world.glow);
     scene.overrideMaterial=null;
     for(const p of albedoPairs)p.mesh.material=p.basic;
     renderer.setRenderTarget(albedoRT);renderer.clear();renderer.render(scene,camera);
@@ -329,6 +363,8 @@ export function createStage(canvas) {
     uniforms.VP.value.copy(camera.projectionMatrix).multiply(camera.matrixWorldInverse);
     uniforms.invVP.value.copy(camera.matrixWorld).multiply(camera.projectionMatrixInverse);
     uniforms.camRotation.value.setFromMatrix4(camera.matrixWorld);
+    const projection=camera.projectionMatrix.elements;
+    uniforms.projectionLens.value.set(projection[0],projection[5],projection[8],projection[9]);
     uniforms.sunDirection.value.copy(sun.position).sub(sun.target.position).normalize();
     renderer.setRenderTarget(null);renderer.render(postScene,postCamera);
     const now=performance.now();
@@ -343,7 +379,7 @@ export function createStage(canvas) {
     if(disposed)return;disposed=true;
     clearFlatMaterials();
     for(const rt of [colorRT,normalRT,shadowRT,albedoRT,reflectionRT])rt.dispose();
-    normalMaterial.dispose();shadowMaterial.dispose();postMaterial.dispose();quad.geometry.dispose();
+    normalMaterial.dispose();inklessNormalMaterial.dispose();shadowMaterial.dispose();postMaterial.dispose();quad.geometry.dispose();
     sun.shadow.map?.dispose();renderer.dispose();world=null;
   }
   resize(canvas.clientWidth||window.innerWidth,canvas.clientHeight||window.innerHeight);

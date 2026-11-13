@@ -44,11 +44,20 @@ dimensions, local streets and shore details are artistic approximations.
 - `dist/vendor`: pinned local Three.js 0.170.0 and geometry utilities.
 - `.openai/hosting.json`: canonical Site identity and static deployment root.
 
-This is a buildless static site; all runtime dependencies are local. Run
-`npm install` only to restore development dependencies. `npm run check`
-validates the JavaScript modules. In the managed environment, preview with
+## Run locally
+
+Open `dist/index.html` in a WebGL 2 browser. When opened from disk, the page
+loads the included `dist/js/local.bundle.js`. To refresh this file after editing
+the JavaScript modules, run `npm ci` and `npm run build:local`.
+
+To serve the ES modules over HTTP, run
+`python -m http.server 8080 --bind 127.0.0.1 --directory dist` from the project
+root and open `http://127.0.0.1:8080/`. In the managed environment, use
 `sites-preview start /workspace/sites/yichang-street-perspectives`.
-Run `npm run verify:water` for the bridge camera's Float32 numerical regression.
+
+All runtime dependencies are local. `npm run check` validates the JavaScript
+modules. `npm run verify:water` runs the bridge camera's Float32 numerical
+regression.
 
 ## Visual references
 

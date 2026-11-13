@@ -5,8 +5,14 @@
   "type": "module",
   "description": "Photograph-informed Yichang landmarks and Yiling Yangtze Bridge with interactive perspective illusions",
   "scripts": {
+    "build:local": "node scripts/build-local.mjs",
     "check": "node --check dist/js/main.js && node --check dist/js/world.js && node --check dist/js/landmarks/cbd.js && node --check dist/js/landmarks/guomao.js && node --check dist/js/bridge-world.js && node --check dist/js/bridge-structure.js && node --check dist/js/bridge-context.js && node --check dist/js/bridge-camera.js && node --check dist/js/engine.js && node --check dist/js/camera.js && node --check dist/js/surface-pass.js",
     "verify:water": "node scripts/verify-water-depth.mjs"
   },
-  "dependencies": {"three": "0.170.0"}
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
 }

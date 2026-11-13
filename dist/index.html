@@ -110,6 +110,25 @@
     <div class="about-section sources"><h3>参考与创作</h3><a href="https://www.yichangly.com/shopping/CBD.html" target="_blank" rel="noopener noreferrer">CBD 实景资料 <span>↗</span></a><a href="https://www.sohu.com/a/335644860_100016441" target="_blank" rel="noopener noreferrer">CBD 沿街立面 · 商户历史照片 <span>↗</span></a><a href="https://www.cn3x.com.cn/article/202510/02/c806699.html" target="_blank" rel="noopener noreferrer">国贸街景 · 三峡宜昌网 <span>↗</span></a><a href="https://www.baoyehb.com/webFrontNews/show?id=2757f712-816e-47c1-a275-bc5ac95ea1ec" target="_blank" rel="noopener noreferrer">国贸建筑体量 · 施工方资料 <span>↗</span></a><a href="https://www.cn3x.com.cn/article/202506/27/c763439.html" target="_blank" rel="noopener noreferrer">夷陵广场与铁路坝 · 三峡宜昌网 <span>↗</span></a><a href="https://github.com/dotslashsimran/simcraft/tree/main/skills/video/perspective-illusion" target="_blank" rel="noopener noreferrer">镜头与插画技术 · Simcraft <span>↗</span></a></div>
     <p class="credit">基于 Three.js 与 Simcraft Perspective Illusion 改编。<br>Simcraft © 2026 Simran Sachdeva · <a href="./assets/SIMCRAFT-LICENSE.txt" target="_blank">MIT License</a> · <a href="./assets/THREE-LICENSE.txt" target="_blank">Three.js License</a></p>
   </dialog>
-  <script type="module" src="./js/main.js"></script>
+  <script>
+    const openedFromDisk = location.protocol === 'file:';
+    const entry = document.createElement('script');
+    if (openedFromDisk) {
+      entry.src = './js/local.bundle.js';
+      document.querySelector('.brand').href = './index.html';
+    } else {
+      entry.type = 'module';
+      entry.src = './js/main.js';
+    }
+    entry.addEventListener('error', () => {
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('error-message').textContent = openedFromDisk
+        ? '本地场景脚本加载失败。请确认 dist/js/local.bundle.js 文件存在，再重新加载。'
+        : '场景脚本加载失败，请重新加载。';
+      document.getElementById('error-screen').hidden = false;
+      document.getElementById('retry-button').addEventListener('click', () => location.reload());
+    });
+    document.body.appendChild(entry);
+  </script>
 </body>
 </html>

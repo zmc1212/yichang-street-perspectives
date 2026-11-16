@@ -30,6 +30,10 @@ dimensions, local streets and shore details are artistic approximations.
 - `dist/js/world.js`: original procedural scenes and Canvas textures.
 - `dist/js/landmarks/cbd.js`: photograph-informed CBD facade and curved stairs.
 - `dist/js/landmarks/guomao.js`: Guomao tower, rounded podium and LED crown.
+- `dist/js/landmarks/guomao-weather.js`: additive light streaks, pools and rain
+  dressing for the Guomao rain-night look.
+- `dist/assets/textures/guomao/`: OpenAI-generated photographs, their prompt
+  files and `manifest.json`.
 - `dist/js/camera.js`: level camera, lens shift, monotone timeline, framing.
 - `dist/js/bridge-world.js`: bridge scene integration, material batching and traffic.
 - `dist/js/bridge-structure.js`: curved Y pylons, stays, piers, deck and approaches.
@@ -201,6 +205,129 @@ of 120 metres. Scene units and all remaining dimensions are scaled estimates
 for the composition, not surveyed measurements. The rendered facade follows
 completed-building photographs; unbuilt renderings are not treated as proof
 of the current exterior.
+
+## Illustration pass refinement, version 6
+
+A Simcraft-led pass reworked the final illustration shader instead of the
+models, because the bridge views had lost the drawn character the technique
+depends on. Ink lines were almost invisible in the river scene, the pylons
+rendered as one flat cream tone, the forested bank read as unoutlined lumps,
+and the sky was an empty gradient.
+
+- Depth lines use a distance-scaled threshold, so far facades stop producing
+  noisy double edges while near silhouettes stay crisp. Line weight now scales
+  with the drawing buffer. River ink is raised from a nearly invisible level.
+- Foliage keeps only its outline against the sky; crown-to-crown depth breaks
+  are suppressed, because they read as a field of boulders. Foliage shadow is
+  softened and carries a coarse, world-anchored leaf grain.
+- Two-tone shading uses a stronger cool step, and ground planes receive paper
+  grain plus paving joints that fade by metres per pixel.
+- The sky is painted from view direction: a warm lift toward the sun's azimuth,
+  two cloud scales with lit crowns and cool undersides, stars on clear night
+  patches, and dimmer high clouds at night so the sky stays deep. A sub-pixel
+  dither removes banding on the gradients.
+- Night grade adds saturation and a soft S-curve; bloom uses sixteen taps;
+  the vignette is stronger; distant street ground falls away so plazas keep a
+  horizon instead of merging into the sky.
+
+The pass was reviewed as rendered frames, not by reading code: the module entry
+over HTTP and the double-click `dist/js/local.bundle.js` entry were both
+captured in headless Chrome with SwiftShader at 1440x900, across CBD, Guomao
+and the bridge at several timeline points, day and night. `npm run check` and
+`npm run verify:water` pass unchanged; camera composition and water masking are
+untouched. These are software-rasterizer stills, so they verify shading and
+composition, not hardware frame rate or motion.
+
+## Rain-night treatment for Guomao, version 7
+
+The Guomao scene now borrows the rendering language of the `rainy-night-store`
+reference: a near-black blue sky, a wet street that throws every light back at
+the camera, and a warm shopfront acting as the colour anchor. The building and
+street content are unchanged; only light, weather and the final grade differ.
+
+- Warm emissive maps on the ground-floor glazing and entrance, plus four real
+  point sources along the frontage, so the shop light is lit rather than drawn.
+- A new `dist/js/landmarks/guomao-weather.js` layer adds camera-facing
+  reflection streaks, light pools, lamp cones, air glow, rain rings, spray and a
+  denser line-rain volume. Everything is additive and registered as `noInk`, so
+  it lives only in the colour pass and never draws an ink outline.
+- The final pass gains a screen-space rain shower, a stronger bloom response, a
+  wet-ground reflection boost with ripple rings, and a cooler, deeper grade.
+  All of it is driven by `rain` and `glowBoost` uniforms.
+- The treatment is opt-in per world through `world.visual` (`rain`, `glowBoost`,
+  night ambient and sun overrides). CBD and the bridge evaluate the same shader
+  with `rain = 0`, so their day and night images are unchanged.
+
+Reviewed as rendered frames at 1440x900 through both the module entry over HTTP
+and the double-click bundle: Guomao day/night, CBD night, bridge night, and a
+CBD→Guomao round trip with day/night toggles. `npm run check`,
+`npm run build:local` and `npm run verify:water` pass; the console is clean.
+
+## Photographic textures and reference camera, version 8
+
+The Guomao shopfronts are now photographic. Seven images were generated through
+the official OpenAI Images API with the `openai-api-image` skill
+(`gpt-image-2.5-flare`, one request each): a convenience-store interior, a warm
+bakery interior, a twelve-metre entrance elevation, a vending-machine front, a
+backlit campaign billboard and an LED dot-matrix facade. They replace the
+canvas-painted interiors and the flat crown panel. Prompts, pixel sizes,
+SHA-256 hashes and per-image inspection notes are recorded in
+`dist/assets/textures/guomao/manifest.json`.
+
+The first entrance banner read as a hotel lobby. It was replaced by
+`entrance-wide-v004.png`, edited from three photographs of the real building
+(the banded pink-granite portal and its square piers, the bronze-framed glass
+doors seen from inside, and the luxury cosmetics hall behind them). The new
+elevation keeps five equal leaves, a level transom, parallel verticals and the
+real interior fit-out, with the temporary red banners, opening arch and poster
+boards left out. Three earlier entrance variants had ended in an API connection
+timeout and produced no file; those attempts remain recorded in the manifest.
+
+These surfaces use unlit materials: the photographs already contain their own
+lit interior, so lighting them again doubled the night exposure. The crown
+letters are painted as a white glyph mask with only 20% of the LED dot panel
+multiplied over them; the first attempt filled the glyphs with the dark facade
+photograph, which printed navy letters against the night sky. The crown
+canvas also had to reset the texture context's 0.5 scale before painting, or
+the fill landed in the top-left quarter of the texture.
+
+The camera tail follows the supplied Douyin reference. That clip is shot at
+street level in one-point perspective, walks under a lit gateway sign, then
+whips up to the tower tops with heavy vertical motion blur and holds them
+against the sky. The Guomao move keeps that grammar: eye-level push to the
+entrance, a 9°→20°→34°→50°→60° tilt with the whip blur peaks at the middle of
+the move, and a final hold on the crown. Two geometric corrections were
+needed. The camera drifts back from z 5.4 to 13 during the tilt, because at the
+canopy edge the 27.5 m podium roof sits at 68° and hides the 66° crown
+completely. The last beat also tightens the horizontal lens from 72° to 42°
+degrees, since a 10.8 m crown band is only 38 px tall when viewed from almost
+directly below. The rear crown face was removed: from below it floated above
+the roof as a second ghost sign.
+
+The renderer needed one shared fix. The night S-curve is defined on 0..1, but
+the lit lobby and its wet reflection exceed 1.5 in the colour buffer; the curve
+drove channels negative and the final clamp left a saturated green fringe on
+the pavement. Values are now clamped to 1 before the curve. A Guomao-only
+`reflectGain` (0.62) tames the additive wet-ground reflection, and the entrance
+point light and weather streaks were reduced so the paving stays warm without
+clipping to a flat yellow sheet.
+
+The rain is three screen-space layers of fine threads rather than wide ribbons:
+width is specified in pixels (about one pixel per thread), each drop owns a
+random span, phase and lateral jitter inside its cell, and a slow fbm mist
+supplies the hazy distance. Cell counts rise from 110x22 near to 220x55 far,
+so the near sheets keep a readable diagonal lean while the distance reads as
+density instead of a repeating comb.
+
+`npm run build:local` now embeds the six Guomao photographs in the
+double-click bundle as JPEG data URLs. Chrome will not upload a local PNG to
+WebGL from a `file://` page, so the disk entry needs the same pixels inline;
+the HTTP module entry still loads the original PNGs.
+
+Reviewed as rendered frames at 1440x900 in headless Chrome with SwiftShader
+through both entries: Guomao day and night at 0, 6, 12, 16, 19.35, 21 and 23
+seconds, CBD night, and bridge night. `npm run check`, `npm run build:local` and
+`npm run verify:water` pass.
 
 ## Validation and limitations
 

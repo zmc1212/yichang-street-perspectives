@@ -14,7 +14,8 @@ export function buildBridgeContext(api){
     emissives,noInk,font,rnd}=api;
   const TAU=Math.PI*2, smooth=THREE.MathUtils.smoothstep, clamp=THREE.MathUtils.clamp;
   const cityShore=z=>-351-17*Math.sin(z/480)+9*Math.sin(z/970);
-  const hillShore=z=>349+18*Math.sin(z/420)+10*Math.sin(z/740);
+  const widen=api.riverWiden||0;
+  const hillShore=z=>349+widen+18*Math.sin(z/420)+10*Math.sin(z/740);
   const ground=9.5;
   const pale='#bfc1b8', kerb='#c5c8bf', darkRoof='#727973';
   const road=material('#545e60'), path=material('#aaada4');
@@ -204,7 +205,8 @@ export function buildBridgeContext(api){
   // Foliage is a connected canopy made of varied, overlapping lobes. It has
   // no evenly spaced rows of identical giant spheres. Park trunks remain visible.
   const crowns=[],farCrowns=[],forestLobes=[],trunks=[],leafPalette=['#466344','#506a43','#5c7447','#3c5b3d','#65794a','#4f6849','#727e4d'];
-  const hillBuildings=[[430,290,34,20,8],[470,342,47,24,7],[508,409,37,21,10],[445,473,45,23,8],[523,527,57,27,9],[488,623,30,21,7],[561,705,38,28,10]];
+  const hillBuildings=[[430,290,34,20,8],[470,342,47,24,7],[508,409,37,21,10],[445,473,45,23,8],[523,527,57,27,9],[488,623,30,21,7],[561,705,38,28,10]]
+    .map(([x,z,w,d,h])=>[x+widen,z,w,d,h]);
   function forestClear(x,z,pad=0){
     if(Math.abs(z)<48+pad&&x<1840)return true;
     if(((x-plazaX)/(48+pad))**2+((z-plazaZ)/(35+pad))**2<1.4)return true;
@@ -530,5 +532,5 @@ export function buildBridgeContext(api){
   for(const [items,detail]of[[crowns,1],[farCrowns,0]])if(items.length){const canopies=instance(new THREE.IcosahedronGeometry(1,detail),material('#fff'),items);canopies.castShadow=false;noInk.push(canopies);}
   if(forestLobes.length){const edgeCrowns=instance(new THREE.IcosahedronGeometry(1,0),material('#fff'),forestLobes);edgeCrowns.castShadow=false;noInk.push(edgeCrowns);}
   if(trunks.length){const stems=instance(new THREE.CylinderGeometry(1,1,1,5),material('#fff'),trunks);stems.castShadow=false;}
-  return {cityShore,hillShore,hillHeight};
+  return {cityShore,hillShore,hillHeight,facades,towers:footprints};
 }

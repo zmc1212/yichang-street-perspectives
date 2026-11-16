@@ -7,7 +7,7 @@
 export function buildGuomao(kit) {
   const {
     THREE, group, material, customMaterial, addMesh, box, plane,
-    canvasTexture, font, emissives, glow, noInk, seeded,
+    canvasTexture, imageTexture, font, emissives, glow, noInk, seeded,
   } = kit;
   const TAU = Math.PI * 2;
   const C = {
@@ -21,6 +21,12 @@ export function buildGuomao(kit) {
     const mat = customMaterial({ ...options, emissive: '#ffffff', emissiveIntensity: 0 });
     emissives.push({ mat, value });
     return mat;
+  }
+  // Photographic surfaces already contain their own lit interior. Lighting them
+  // again and adding an emissive map doubles the exposure at night, so they use
+  // an unlit material and behave as the light source they were photographed as.
+  function photo(map, tint = '#ffffff') {
+    return new THREE.MeshBasicMaterial({ map, color: tint });
   }
 
   // A continuous curtain wall. Daytime glazing stays blue-black: its bright
@@ -83,6 +89,31 @@ export function buildGuomao(kit) {
     };
   }
 
+  // Rain-night frontage: photographic shop interiors behind glass. Two generated
+  // interiors plus their mirrored copies give the seventeen bays four readings;
+  // the lit map only appears once the night emissive is switched on, so the wet
+  // paving picks up a long warm sheet of interior light.
+  const shopTex = [
+    imageTexture('assets/textures/guomao/shop-convenience-v001.png'),
+    imageTexture('assets/textures/guomao/shop-bakery-v001.png'),
+  ];
+  function mirrored(tex) {
+    const t = tex.clone();
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.repeat.x = -1; t.offset.x = 1;
+    return t;
+  }
+  const shopMats = [...shopTex, ...shopTex.map(mirrored)]
+    .map((tex) => photo(tex));
+  const shopFrame = material('#1c2c31');
+  const trimLit = canvasTexture(64, 16, (c, W, H) => {
+    c.fillStyle = '#ffcb8d'; c.fillRect(0, 0, W, H);
+  });
+  // The fascia band is an aluminium housing with an LED face: its diffuse
+  // albedo stays dark so the entrance light cannot blow it out, and the light
+  // it gives the wet paving comes from the emissive map alone.
+  const trimGlow = emitting({ color: '#2f3633', emissiveMap: trimLit }, .58);
+
   // Extrude a plan outline vertically. The first bend is the characteristic
   // soft street corner; the tower and rear junction deliberately remain square.
   function podiumBody(w, d, radius, height, x, z, mat, bottom = 0) {
@@ -134,9 +165,9 @@ export function buildGuomao(kit) {
     return face;
   }
 
-  const podiumGlass = curtainWall(23.2, { tileWidth: 18, rowHeight: 3.7, seed: 71, light: .46 });
-  const towerGlass = curtainWall(79.4, { tileWidth: 18, rowHeight: 3.55, seed: 128, light: .58 });
-  const olderGlass = curtainWall(19.5, { tileWidth: 18, rowHeight: 3.1, seed: 36, light: .32 });
+  const podiumGlass = curtainWall(23.2, { tileWidth: 18, rowHeight: 3.7, seed: 71, light: .68 });
+  const towerGlass = curtainWall(79.4, { tileWidth: 18, rowHeight: 3.55, seed: 128, light: .82 });
+  const olderGlass = curtainWall(19.5, { tileWidth: 18, rowHeight: 3.1, seed: 36, light: .44 });
   const dark = material(C.glass), edge = material(C.metalDark), rib = material(C.metal);
   const topRib = material('#a3b6b5', { emissive: '#a7cbc4', emissiveIntensity: 0 });
   emissives.push({ mat: topRib, value: .48 });
@@ -219,39 +250,68 @@ export function buildGuomao(kit) {
   // Low rooftop screens are deliberately recessed below the crown silhouette.
   box(10, .6, 6.5, tx + 2, 96.6, tz - 3, '#536366');
 
-  function crownTexture(text = '', seed = 2) {
-    return canvasTexture(2048, 896, (c, W, H) => {
+  // The crown is a real LED mesh: a generated dot-matrix facade supplies the
+  // pixel colour and the letter/stream masks only cut its silhouette, so the
+  // glyph outlines stay correct Chinese while the material is photographic.
+  const crownLed = imageTexture('assets/textures/guomao/crown-led-v001.png');
+  function crownTexture(text = '') {
+    const tex = canvasTexture(2048, 912, (c, W, H) => {
       c.clearRect(0, 0, W, H);
-      let mask;
       if (text) {
-        const m = document.createElement('canvas'); m.width = W; m.height = H;
-        const p = m.getContext('2d'); p.fillStyle = '#fff'; p.textAlign = 'center'; p.textBaseline = 'middle';
-        p.font = font(760, 700); p.fillText(text, W / 2, H * .50, W * .90);
-        mask = p.getImageData(0, 0, W, H).data;
+        c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = font(760, 700); c.fillText(text, W / 2, H * .50, W * .90);
+      } else {
+        const cw = W / 94, ch = H / 28;
+        for (let col = 0; col < 94; col++) for (let row = 0; row < 28; row++) {
+          const n = seeded(52 + col * 31 + row * 13);
+          if (n < .50) continue;
+          c.globalAlpha = .35 + n * .5; c.fillStyle = '#fff';
+          c.fillRect((col + .5) * cw - cw * .18, (row + .5) * ch - ch * .35, cw * .36, ch * .70);
+        }
+        c.globalAlpha = 1;
       }
-      const cw = W / 94, ch = H / 28;
-      for (let col = 0; col < 94; col++) for (let row = 0; row < 28; row++) {
-        const x = (col + .5) * cw, y = (row + .5) * ch;
-        const on = mask && mask[(Math.floor(y) * W + Math.floor(x)) * 4 + 3] > 100;
-        const n = seeded(seed + col * 31 + row * 13);
-        if (!on && (text ? n < .92 : n < .52)) continue;
-        c.globalAlpha = on ? .95 : .28 + n * .38;
-        c.fillStyle = on ? '#9bdac7' : '#5c9a9b';
-        c.fillRect(x - cw * .18, y - ch * .35, cw * .36, ch * .70);
-      }
-      c.globalAlpha = 1;
     });
+    const paint = () => {
+      if (!crownLed.image) return;
+      const cv = tex.image, W = cv.width, H = cv.height, ctx = cv.getContext('2d');
+      const mask = document.createElement('canvas'); mask.width = W; mask.height = H;
+      mask.getContext('2d').drawImage(cv, 0, 0);
+      // canvasTexture leaves its 0.5 canvas-space scale on this context; painting
+      // through it would shrink the fill into the top-left quarter of the canvas.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      if (text) {
+        // A lit crown sign: the glyphs stay white and only borrow the panel's
+        // dot structure. Filling them with the dark facade photo would print
+        // navy letters on a night sky.
+        ctx.drawImage(mask, 0, 0);
+        ctx.globalAlpha = .2; ctx.globalCompositeOperation = 'source-atop';
+        ctx.drawImage(crownLed.image, 0, 0, W, H);
+        ctx.globalAlpha = 1;
+      } else {
+        // The dot-matrix band keeps the photographed LED panel as its fill.
+        ctx.drawImage(crownLed.image, 0, 0, W, H);
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.drawImage(mask, 0, 0);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      tex.needsUpdate = true;
+    };
+    if (crownLed.image) paint();
+    else (crownLed.userData.onLoad ||= []).push(paint);
+    return tex;
   }
-  const letterTex = crownTexture('国贸', 8), streamTex = crownTexture('', 52);
+  const letterTex = crownTexture('国贸'), streamTex = crownTexture('');
   const crownLetter = emitting({ map: letterTex, color: '#ffffff', emissiveMap: letterTex,
-    transparent: true, alphaTest: .12, depthWrite: false, side: THREE.DoubleSide }, 1.35);
+    transparent: true, alphaTest: .12, depthWrite: false, side: THREE.DoubleSide }, .9);
   const crownStream = emitting({ map: streamTex, color: '#ffffff', emissiveMap: streamTex,
-    transparent: true, alphaTest: .12, depthWrite: false, side: THREE.DoubleSide }, 1.05);
+    transparent: true, alphaTest: .12, depthWrite: false, side: THREE.DoubleSide }, 1.22);
+  // No rear face: the final shot looks almost straight up, and the back panel
+  // would float above the roof as a second ghost sign.
   const crownFaces = [
     plane(24.2, 10.8, tx, 89.05, -33.68, crownLetter),
     plane(26.2, 10.8, -17.19, 89.05, tz, crownStream, Math.PI / 2),
     plane(26.2, 10.8, -42.81, 89.05, tz, crownStream, -Math.PI / 2),
-    plane(24.2, 10.8, tx, 89.05, -61.32, crownLetter, Math.PI),
   ];
   crownFaces.forEach(face => { glow.push(face); noInk.push(face); });
 
@@ -260,22 +320,33 @@ export function buildGuomao(kit) {
   box(53, 4.5, .38, -43, 2.6, -4.64, C.joint);
   for (let i = 0; i < 17; i++) {
     const x = -68.6 + i * 3.1;
-    box(2.82, 3.55, .22, x, 2.65, -4.37, C.shop);
+    box(2.82, 3.55, .22, x, 2.65, -4.37, shopFrame);
+    plane(2.76, 3.49, x, 2.65, -4.245, shopMats[i % 4]);
     box(.10, 4.45, .26, x + 1.5, 2.65, -4.21, '#98a8a4');
     box(2.80, .14, .29, x, .93, -4.17, '#6e8587');
   }
-  box(53, .23, .75, -43, 4.92, -4.20, '#8f9b98');
+  box(53, .23, .75, -43, 4.92, -4.20, trimGlow);
   // Main entrance: set-back glass doors, slender portal and a real projecting
   // canopy. It does not turn the whole building into a freestanding signboard.
   const ex = -25.2;
   box(12.1, 4.2, 1.35, ex, 2.25, -4.12, '#20343c');
-  for (let i = 0; i < 5; i++) {
-    const x = ex - 4.2 + i * 2.1;
-    box(1.93, 3.65, .13, x, 2.2, -3.41, '#6b8e93');
-    box(.065, 3.75, .12, x + .96, 2.25, -3.29, '#bac5bd');
-    box(.035, .65, .07, x + .76, 1.8, -3.18, '#e3e4d7');
+  // One generated wide elevation covers the five leaves: the reference is the
+  // real Guomao portal, with its banded pink granite, bronze-framed doors and
+  // the cosmetics hall visible through the glass. Not a hotel lobby.
+  const entranceTex = imageTexture('assets/textures/guomao/entrance-wide-v004.png');
+  const doorMat = photo(entranceTex);
+  plane(12.0, 4.14, ex, 2.23, -3.43, doorMat);
+  // The convenience frontage keeps two vending machines beside the doors; their
+  // fronts are photographic and light the wet paving with a small cool pool.
+  const vendTex = imageTexture('assets/textures/guomao/vending-v001.png');
+  const vendMat = photo(vendTex);
+  for (const x of [-33.35, -34.55]) {
+    box(1.06, 1.96, .66, x, .99, -3.62, '#262d30');
+    plane(.99, 1.86, x, 1.00, -3.28, vendMat);
+    box(1.12, .07, .70, x, 1.99, -3.62, '#3b4245');
   }
   box(14.2, .18, 4.4, ex, 4.70, -2.85, '#3e5a65');
+  box(14.2, .05, .20, ex, 4.57, -.74, trimGlow);
   box(14.4, .16, .20, ex, 4.63, -.62, '#abb9b3');
   for (const x of [ex - 5.9, ex + 5.9]) box(.14, 4.5, .14, x, 2.25, -.90, '#a3b2ad');
   box(15.2, .15, 5.4, ex, .18, -2.38, '#b4b5a8');
@@ -287,21 +358,14 @@ export function buildGuomao(kit) {
 
   // The prominent magenta screen is on the lower front of the rounded podium,
   // below the upper mullion crown, matching the real street-view arrangement.
-  const adTex = canvasTexture(1536, 640, (c, W, H) => {
-    c.fillStyle = '#a83e6d'; c.fillRect(0, 0, W, H);
-    const g = c.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, '#c25b86'); g.addColorStop(1, '#913966');
-    c.fillStyle = g; c.fillRect(0, 0, W, H);
-    c.fillStyle = '#edb7bf'; c.beginPath(); c.ellipse(W * .79, H * .54, W * .15, H * .48, -.25, 0, TAU); c.fill();
-    c.fillStyle = '#f0d6ca'; c.beginPath(); c.arc(W * .76, H * .41, H * .21, 0, TAU); c.fill();
-    c.fillStyle = '#35685e'; c.beginPath(); c.moveTo(W * .71, H * .87); c.quadraticCurveTo(W * .94, H * .28, W * .98, H); c.lineTo(W * .65, H); c.fill();
-    c.fillStyle = '#ffeedf'; c.font = font(126, 700); c.fillText('一起，逛宜昌', 72, 252, W * .60);
-    c.font = font(47, 500); c.fillText('把日常，过成喜欢的模样', 77, 355, W * .57);
-    c.font = font(28, 500); c.fillText('GUOMAO  /  YICHANG', 79, 538);
-  });
-  const adMat = emitting({ map: adTex, color: '#ffffff', emissiveMap: adTex }, .82);
+  // The media wall carries a generated campaign photograph rather than a drawn
+  // placeholder; the crop removes the photographed frame so the LED panel sits
+  // inside the building's own bezel.
+  const adTex = imageTexture('assets/textures/guomao/billboard-v001.png');
+  adTex.repeat.set(.90, .68); adTex.offset.set(.05, .17);
+  const adMat = photo(adTex);
   box(18.4, 6.8, .35, -59.2, 12.7, -4.43, '#21353f');
-  const screen = plane(18.0, 6.4, -59.2, 12.7, -4.20, adMat);
+  const screen = plane(17.6, 5.0, -59.2, 12.7, -4.20, adMat);
   glow.push(screen);
   // Modest facade media strip and an entry display, not rows of giant ad boards.
   const stripMat = material('#87a9ae', { emissive: '#a7d4d9', emissiveIntensity: 0 });
@@ -317,14 +381,24 @@ export function buildGuomao(kit) {
     for (let j = 0; j < 6; j++) box(w - .4, .07, .12, x, 28.83, z - d * .36 + j * d * .14, '#8b9995');
   }
 
-  return {
-    focus: {
-      x: -37, y: 35, zf: -28, W: 132,
-      heroBounds: [
-        { min: [-79.4, 0, -53.5], max: [-11.7, 32.1, .70] },
-        { min: [-42.9, 0, -61.5], max: [-17.0, 97.0, -33.5] },
-      ],
-      target: { left: .08, right: .88, top: .12, bottom: .78 },
-    },
-  };
+  // Warm shop light, the entrance and the magenta screen each get a real
+  // source so the wet paving in front of them is lit, not just painted.
+  function nightLight(x, y, z, color, intensity, distance) {
+    const light = new THREE.PointLight(color, 0, distance, 2);
+    light.position.set(x, y, z);
+    light.userData.nightIntensity = intensity;
+    group.add(light);
+  }
+  nightLight(-63, 3.3, -1.3, '#ffb877', 68, 22);
+  nightLight(-45, 3.3, -1.3, '#ffb877', 62, 22);
+  // The entrance source stands out in the forecourt, not under the canopy:
+  // there it lights the wet paving instead of grazing the fascia into bloom.
+  // Kept weak so the forecourt lamp post in front of it does not clip to yellow.
+  nightLight(-25.2, 2.9, 1.2, '#ffd3a0', 14, 10);
+  nightLight(-59.2, 9.6, -1.8, '#ff6ea8', 58, 24);
+  nightLight(-33.9, 1.5, -2.5, '#bcd8ff', 16, 7);
+
+  // The camera follows the reference clip's street walk rather than fitting
+  // hero bounds; camera.js owns that path and keeps the other scenes unchanged.
+  return { focus: { kind: 'guomao' } };
 }

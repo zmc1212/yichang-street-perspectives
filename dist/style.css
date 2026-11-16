@@ -8,6 +8,14 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}.loading-track span{width:100%}}
 @media(max-width:360px){.mood-control{right:16px}.mood-button{padding:8px}.mood-button span{display:none}.mood-button svg{width:14px;height:14px}.scene-switch{left:16px}.scene-tab{padding:8px 11px}.timeline-block{min-width:100px}.playback-row{gap:10px;flex-wrap:nowrap}.unfold-button{padding:12px 9px;gap:4px}.time-counter{font-size:7px}.brand-name{font-size:15px}.scene-copy h1{font-size:24px}}
 @media(max-height:550px) and (orientation:landscape){.app{min-height:0;height:100svh}.scene-copy{top:88px}.scene-copy h1{font-size:25px;margin:10px 0}.scene-copy .scene-tagline{display:none}.view-rail{top:85px;right:22px;transform:none;flex-direction:row;gap:2px;padding:5px 7px;border-radius:30px}.view-rail .rail-label{display:none}.view-rail .view-button{width:37px;height:42px;gap:3px}.view-rail .rail-divider{width:1px;height:20px;margin:0 3px}.mood-control{top:143px;right:26px}.control-dock{bottom:32px;padding:11px 17px 13px}.dock-heading{margin-bottom:10px}.explore-hint{display:none}.canvas-footer{bottom:10px}.topbar{height:70px}}
+/* 9:16 river preset: the canvas keeps a true vertical frame inside the site
+   chrome, and the 1080x1920 export uses the same aspect ratio. */
+.view-button[hidden]{display:none}
+.vertical-scene{background:#050810}
+.vertical-scene .viewport{display:grid;place-items:center;background:#050810}
+.vertical-scene .viewport canvas{width:min(100%,calc(100svh * 9 / 16));height:auto;aspect-ratio:9/16;max-height:100%;box-shadow:0 0 80px #000000a6}
+.vertical-scene .edge-shade{background:linear-gradient(180deg,#0a0f1cc4,transparent 17%,transparent 74%,#070b14c9)}
+.vertical-scene .scene-copy{max-width:340px}
 .app.camera-running .scene-copy{opacity:0;transform:translateY(-8px)}
 .bridge-scene.night{--ink:#f2e9dc;--accent:#dec08c;--muted:#aab6cc;--line:#c4cee326;--glass:rgba(17,24,45,.88);color:#e9e7e1}
 .bridge-scene.night .edge-shade{background:linear-gradient(180deg,#0b132d85,transparent 17%,transparent 77%,#0a102c80)}

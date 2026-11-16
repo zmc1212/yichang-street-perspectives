@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildBridgeContext } from './bridge-context.js';
 import { buildBridgeStructure } from './bridge-structure.js';
+import { buildRiverBank } from './river-bank.js';
 import { markWaterMaterial } from './surface-pass.js';
 
 /**
@@ -15,8 +16,10 @@ import { markWaterMaterial } from './surface-pass.js';
 const SCALE=.35, LOOP=24000, TAU=Math.PI*2, DECK=24;
 const rnd=n=>{const v=Math.sin(n*127.1+19.71)*43758.5453;return v-Math.floor(v);};
 
-export function createBridgeWorld(){
-  const group=new THREE.Group();group.name='夷陵长江大桥 · 一桥连两岸';
+export function createBridgeWorld(options={}){
+  const variant=options.variant==='river'?'river':'bridge';
+  const loopMs=variant==='river'?10000:LOOP;
+  const group=new THREE.Group();group.name=variant==='river'?'夷陵长江大桥 · 江北江景':'夷陵长江大桥 · 一桥连两岸';
   const glow=[],noInk=[],staticMeshes=[],materialCache=new Map(),textures=new Set(),geometries=new Set();
   const emissives=[],lights=[],animated=[],nightObjects=[],nightVisible=[];
   let night=false;
@@ -46,6 +49,15 @@ export function createBridgeWorld(){
     const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=4;textures.add(t);return t;
   }
   const font=(px,weight=600)=>`${weight} ${px}px "Scene Sans","Noto Sans CJK SC","Microsoft YaHei",sans-serif`;
+  // Photographic plates for the river variant. Local builds inline the same
+  // paths in __LOCAL_TEXTURES__ so double-clicking index.html still works.
+  const pendingTextures=[],loader=new THREE.TextureLoader();
+  function imageTexture(path){
+    let settle;const ready=new Promise(resolve=>{settle=resolve;});
+    const source=globalThis.__LOCAL_TEXTURES__?.[path]||path;
+    const t=loader.load(source,()=>settle(),undefined,()=>settle());
+    t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;textures.add(t);pendingTextures.push(ready);return t;
+  }
   function emitting(color,strength){const m=material(color,{emissive:color,emissiveIntensity:0});if(!emissives.some(x=>x.mat===m))emissives.push({mat:m,value:strength});return m;}
   function instance(geo,mat,items){
     geometries.add(geo);const m=new THREE.InstancedMesh(geo,mat,items.length),o=new THREE.Object3D();
@@ -75,11 +87,20 @@ export function createBridgeWorld(){
   const water=plane(24000,24000,0,0,0,waterMat,0,group,false);water.rotation.x=-Math.PI/2;water.receiveShadow=true;
 
   // Photograph-informed components share the same metre coordinates and batching.
-  const api={group,mesh,box,cyl,plane,beam,prismX,texture,material,customMaterial,
+  const api={group,mesh,box,cyl,plane,beam,prismX,texture,imageTexture,material,customMaterial,
     emitting,instance,glow,noInk,emissives,nightVisible,geometries,DECK,font,rnd};
+  // The real crossing carries about 800 m of water; the base model was 700 m.
+  // Only the upstream bank moves, so the near promenade, the revetment and the
+  // camera path stay exactly where they were tuned.
+  api.riverWiden=variant==='river'?100:0;
+  // The 9:16 preset is filmed almost along the river axis, so the pylon is read
+  // through its thin section; the presets keep the surveyed 6.5 m shaft.
+  api.towerBulk=variant==='river'?1:0;
   const structure=buildBridgeStructure(api);
   api.structure=structure;
   const context=buildBridgeContext(api);
+  api.context=context;
+  const river=variant==='river'?buildRiverBank(api):null;
 
   // Traffic remains at the same physical scale as the 23 m road, with gradual
   // local movement so a loop does not teleport vehicles through the hero view.
@@ -155,13 +176,17 @@ export function createBridgeWorld(){
   group.updateMatrixWorld(true);
 
   function setNight(value){
-    night=Boolean(value);for(const {mat,value}of emissives)mat.emissiveIntensity=night?value:0;
+    night=Boolean(value);
+    for(const item of emissives){
+      const towerDim=1;
+      item.mat.emissiveIntensity=night?item.value*towerDim:0;
+    }
     for(const x of nightObjects)x.mat.opacity=night?x.night:x.day;
-    waterMat.color.set(night?'#29385b':'#5c7c80');nightVisible.forEach(o=>o.visible=night);
+    waterMat.color.set(night?(variant==='river'?'#243a40':'#29385b'):'#5c7c80');nightVisible.forEach(o=>o.visible=night);
     lights.forEach(l=>l.intensity=night?15:0);
   }
-  function animate(ms){
-    const t=((ms%LOOP)+LOOP)%LOOP/LOOP;
+  function animate(ms,shot,camera){
+    const t=((ms%loopMs)+loopMs)%loopMs/loopMs;
     waterTex.offset.y=t;
     for(const item of animated){
       if(item.kind==='vehicle')item.obj.position.x=item.x+Math.sin(t*TAU+item.seed*.61)*9;
@@ -170,7 +195,7 @@ export function createBridgeWorld(){
         if(item.wake)item.wake.position.z=item.obj.position.z-33;
       }
     }
-
+    if(river)river.update(t,camera);
   }
   function dispose(){
     group.traverse(o=>{if(o.geometry)geometries.add(o.geometry);});geometries.forEach(g=>g.dispose());
@@ -179,8 +204,14 @@ export function createBridgeWorld(){
     group.clear();
   }
   const scaled=(min,max)=>({min:min.map(v=>v*SCALE),max:max.map(v=>v*SCALE)});
-  const focus={kind:'bridge',x:0,y:25,zf:0,W:420,
-    heroBounds:[scaled([-470,20.5,-12],[470,34,12]),scaled([-356,0,-16],[-340,110,16]),scaled([-12,0,-18],[12,129.3,18]),scaled([340,0,-16],[356,110,16])],
-    target:{left:.075,right:.925,top:.14,bottom:.79}};
-  return {group,glow,noInk,focus,context,animate,setNight,dispose,water:[water],waterMesh:water,visual:{kind:'river',scale:SCALE,hazeNear:350,hazeFar:1000,waterLevel:0}};
+  const focus=variant==='river'
+    ? {kind:'river',loop:loopMs}
+    : {kind:'bridge',x:0,y:25,zf:0,W:420,
+      heroBounds:[scaled([-470,20.5,-12],[470,34,12]),scaled([-356,0,-16],[-340,110,16]),scaled([-12,0,-18],[12,129.3,18]),scaled([340,0,-16],[356,110,16])],
+      target:{left:.075,right:.925,top:.14,bottom:.79}};
+  const visual=variant==='river'
+    ? {kind:'river',scale:SCALE,hazeNear:320,hazeFar:1150,waterLevel:0,rain:.55,reflectGain:1.26,glowBoost:1.15,horizon:[.062,.066,.080]}
+    : {kind:'river',scale:SCALE,hazeNear:350,hazeFar:1000,waterLevel:0};
+  return {group,glow,noInk,focus,context,river,loop:loopMs,ready:Promise.all(pendingTextures),
+    animate,setNight,dispose,water:[water],waterMesh:water,visual};
 }

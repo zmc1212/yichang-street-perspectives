@@ -165,7 +165,17 @@ export function buildBridgeStructure(api) {
   emissives.push({mat:towerWhite,value:.50});
   const inset=material('#6f9ead'),insetShadow=material('#497e91');
   const gold=emitting('#e6c58d',1.65);
-  function towerDepth(y,topY){return THREE.MathUtils.lerp(6.5,4.8,THREE.MathUtils.clamp((y-DECK)/(topY-DECK),0,1));}
+  // Along-bridge thickness of the pylon shaft. `towerBulk` is set by the 9:16
+  // preset only: seen from the north bank at eye level the camera looks almost
+  // down the river axis, so the shaft is read through its thin dimension and the
+  // Y limbs (which splay across the bridge) collapse to a plate. Making the
+  // section deeper is the one lever that widens it without moving the legs off
+  // the pier or touching the deck width, the tower height or the cable layout.
+  const towerBulk = api.towerBulk || 0;
+  const depthBase = THREE.MathUtils.lerp(6.5, 9.2, towerBulk);
+  const depthTop = THREE.MathUtils.lerp(4.8, 6.8, towerBulk);
+  function towerDepth(y,topY){return THREE.MathUtils.lerp(depthBase,depthTop,THREE.MathUtils.clamp((y-DECK)/(topY-DECK),0,1));}
+  const shapeDepth = THREE.MathUtils.lerp(6.5, 9.2, towerBulk);
 
   function tower(x,topY,isMiddle){
     const H=topY-DECK,capW=isMiddle?23.6:19.6,capD=isMiddle?34:30;
@@ -191,10 +201,10 @@ export function buildBridgeStructure(api) {
     s.lineTo(14.2,DECK-1.25);s.lineTo(9.72,DECK-1.25);s.lineTo(1.18,DECK+H*.558);
     s.quadraticCurveTo(.72,DECK+H*.599,0,DECK+H*.608);
     s.quadraticCurveTo(-.72,DECK+H*.599,-1.18,DECK+H*.558);s.lineTo(-9.72,DECK-1.25);s.closePath();
-    const g=new THREE.ExtrudeGeometry(s,{depth:6.5,steps:1,bevelEnabled:true,bevelThickness:.095,bevelSize:.11,bevelSegments:2,curveSegments:14});
-    g.translate(0,0,-3.25);g.rotateY(Math.PI/2);
+    const g=new THREE.ExtrudeGeometry(s,{depth:shapeDepth,steps:1,bevelEnabled:true,bevelThickness:.095,bevelSize:.11,bevelSegments:2,curveSegments:14});
+    g.translate(0,0,-shapeDepth/2);g.rotateY(Math.PI/2);
     const p=g.attributes.position;
-    for(let i=0;i<p.count;i++)p.setX(i,p.getX(i)*towerDepth(p.getY(i),topY)/6.5);
+    for(let i=0;i<p.count;i++)p.setX(i,p.getX(i)*towerDepth(p.getY(i),topY)/shapeDepth);
     p.needsUpdate=true;g.computeVertexNormals();const pylon=mesh(g,towerWhite,x,0,0);pylon.name=isMiddle?'夷陵大桥中央曲肩Y塔':'夷陵大桥岸塔曲肩Y轮廓';
 
     // Recessed blue-grey channels have raised white lips. A continuous ribbon
@@ -306,5 +316,6 @@ export function buildBridgeStructure(api) {
   }
 
   return {deckHeightAt,mainSpan:936,deckWidth:23,cableCount:cableItems.length,
-    towerLocations:[-348,0,348],approachEnds:[-1120,1120]};
+    towerLocations:[-348,0,348],approachEnds:[-1120,1120],towerMaterial:towerWhite,
+    cableMaterial:cables.material,insetMaterial:inset,goldMaterial:gold};
 }

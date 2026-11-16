@@ -29,6 +29,7 @@
     <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 11a9 9 0 1 1 2.5 7M3 5v6h6"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
     <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol>
+    <symbol id="i-vertical" viewBox="0 0 24 24"><path d="M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z"/><path d="M12 7v7m-3-3 3 3 3-3"/></symbol>
   </defs></svg>
   <main id="app" class="app">
     <div id="viewport" class="viewport">
@@ -43,7 +44,8 @@
       <nav class="scene-switch" aria-label="选择宜昌场景">
         <button class="scene-tab" data-scene="cbd" aria-pressed="false"><span class="tab-no">01</span> CBD 街角</button>
         <button class="scene-tab" data-scene="guomao" aria-pressed="false"><span class="tab-no">02</span> 国贸广场</button>
-        <button class="scene-tab active" data-scene="bridge" aria-pressed="true"><span class="tab-no">03</span> 夷陵大桥</button>
+        <button class="scene-tab" data-scene="bridge" aria-pressed="false"><span class="tab-no">03</span> 夷陵大桥</button>
+        <button class="scene-tab" data-scene="river" aria-pressed="false"><span class="tab-no">04</span> 夷陵江景</button>
       </nav>
       <div class="header-actions">
         <button class="icon-button" id="about-button" title="关于这座街景" aria-label="关于这座街景"><svg><use href="#i-info"/></svg></button>
@@ -70,6 +72,7 @@
       <button class="view-button" data-view="corner" title="从街角侧看" aria-label="从街角侧看" aria-pressed="false"><svg><use href="#i-orbit"/></svg><span>转角</span></button>
       <span class="rail-divider"></span>
       <button class="view-button" id="capture-button" title="保存当前画面" aria-label="保存当前画面"><svg><use href="#i-camera"/></svg><span>留影</span></button>
+      <button class="view-button" id="export-button" title="导出 1080×1920 竖屏静帧" aria-label="导出 1080×1920 竖屏静帧" hidden><svg><use href="#i-vertical"/></svg><span>9:16</span></button>
     </aside>
 
     <div class="explore-hint" id="explore-hint"><span class="drag-symbol" aria-hidden="true">↔</span><span>左右拖动 · 探索街角</span></div>
@@ -82,7 +85,7 @@
       <div class="playback-row">
         <button id="play-button" class="play-button" title="暂停镜头" aria-label="暂停镜头" aria-pressed="true"><svg><use href="#i-pause"/></svg></button>
         <div class="timeline-block">
-          <div class="timeline-labels"><span id="timeline-description">一幅画<span class="timeline-arrow">→</span>一江景</span><span class="time-counter"><b id="current-time">00:00</b><span>/ 00:24</span></span></div>
+          <div class="timeline-labels"><span id="timeline-description">一幅画<span class="timeline-arrow">→</span>一江景</span><span class="time-counter"><b id="current-time">00:00</b><span>/ <span id="total-time">00:24</span></span></span></div>
           <input id="timeline" class="timeline" type="range" min="0" max="1000" step="1" value="0" aria-label="镜头时间轴">
           <div class="timeline-stops" aria-hidden="true"><span>长焦压平</span><span>空间展开</span><span>转角发现</span><span>回到画中</span></div>
         </div>

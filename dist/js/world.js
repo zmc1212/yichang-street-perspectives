@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildCbd } from './landmarks/cbd.js';
 import { buildGuomao } from './landmarks/guomao.js';
+import { buildGuomaoWeather } from './landmarks/guomao-weather.js';
 
 // Original Yichang street compositions, based on CBD and Guomao reference photos.
 // Building dimensions and the relation between streets are artistic approximations.
@@ -45,6 +46,25 @@ export function createWorld(id = 'cbd') {
     draw(ctx,width,height);
     const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4;
     textures.push(t); return t;
+  }
+  // Generated photographic textures load asynchronously; callers keep the
+  // material and the map fills in. `ready` holds the scene behind the loader
+  // so the first rendered frame already contains the final surfaces.
+  const textureLoader=new THREE.TextureLoader(), pendingTextures=[];
+  // Chrome refuses a crossOrigin="anonymous" image request from a file:// page,
+  // so the double-click entry (local.bundle.js) loads the same PNGs without it.
+  if (location.protocol === 'file:') textureLoader.crossOrigin = undefined;
+  function imageTexture(path) {
+    let settle;
+    const ready=new Promise(resolve=>{settle=resolve;});
+    // The file:// bundle carries the same photographs as data URLs, because a
+    // local PNG cannot be uploaded to WebGL from a disk page.
+    const t=textureLoader.load(globalThis.__LOCAL_TEXTURES__?.[path] || path,()=>{
+      t.userData.onLoad?.forEach(fn=>fn());
+      settle();
+    },undefined,settle);
+    t.colorSpace=THREE.SRGBColorSpace;t.anisotropy=8;
+    textures.push(t);pendingTextures.push(ready);return t;
   }
   function font(size,weight=600) { return `${weight} ${size}px "Scene Sans", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif`; }
   function textTexture(text, bg, fg, {sub='',size=100,vertical=false,border=false}={}) {
@@ -178,8 +198,12 @@ export function createWorld(id = 'cbd') {
   guardRail(isCBD?15:17,isCBD?55:78,11.2);
 
   // Main landmarks are separately reconstructed from the local reference photographs.
-  const kit={THREE,group,material,customMaterial,addMesh,box,cyl,sphere,plane,canvasTexture,font,textTexture,sign,facade,roofEquipment,shopfronts,emissives,glow,noInk,staticMeshes,seeded,palette};
+  const kit={THREE,group,material,customMaterial,addMesh,box,cyl,sphere,plane,canvasTexture,imageTexture,font,textTexture,sign,facade,roofEquipment,shopfronts,emissives,glow,noInk,staticMeshes,seeded,palette};
   const architecture=isCBD?buildCbd(kit):buildGuomao(kit);
+  // The Guomao frontage borrows the rainy-night-store language: a dark, humid
+  // street where every lamp leaves a long additive streak on the wet paving.
+  const weather=isCBD?null:buildGuomaoWeather({THREE,canvasTexture,noInk,seeded});
+  if(weather)group.add(weather.group);
 
   // Ordinary older apartments use punched windows and small balconies, not curtain walls.
   function apartment(x,z,w,d,floors,{wall='#c9c6bd',seed=0,stores=true,balconies=true}={}){
@@ -437,10 +461,11 @@ export function createWorld(id = 'cbd') {
   person(isCBD?10.9:24,-8,25,1,false);
 
   // Restrained rain is a single draw call and only appears in rain-night mode.
-  const rainCount=600, rainGeo=new THREE.BufferGeometry(),rainPositions=new Float32Array(rainCount*6),rainSeeds=[];
-  for(let i=0;i<rainCount;i++)rainSeeds.push([seeded(i*3)*124-62,seeded(i*3+1)*65,seeded(i*3+2)*152-118]);
+  // Guomao carries the denser, brighter weather of the rainy-night reference.
+  const rainCount=isCBD?600:1500, rainGeo=new THREE.BufferGeometry(),rainPositions=new Float32Array(rainCount*6),rainSeeds=[];
+  for(let i=0;i<rainCount;i++)rainSeeds.push([seeded(i*3)*(isCBD?124:152)-(isCBD?62:94),seeded(i*3+1)*65,seeded(i*3+2)*(isCBD?152:172)-(isCBD?118:122)]);
   rainGeo.setAttribute('position',new THREE.BufferAttribute(rainPositions,3));
-  const rainMat=new THREE.LineBasicMaterial({color:'#b5d3cf',transparent:true,opacity:.20,depthWrite:false});materials.set(rainMat.uuid,rainMat);
+  const rainMat=new THREE.LineBasicMaterial({color:'#b5d3cf',transparent:true,opacity:isCBD?.20:.30,depthWrite:false});materials.set(rainMat.uuid,rainMat);
   const rain=new THREE.LineSegments(rainGeo,rainMat);rain.visible=false;rain.frustumCulled=false;group.add(rain);noInk.push(rain);
 
   // Each articulated person renders as five meshes; rigid cars render as one.
@@ -490,8 +515,12 @@ export function createWorld(id = 'cbd') {
   function setNight(value){
     night=Boolean(value);emissives.forEach(({mat,value})=>mat.emissiveIntensity=night?value:0);
     lamps.forEach(l=>l.intensity=night?18:0);umbrellas.forEach(u=>u.visible=night);rain.visible=night;
+    // Local sources are declared by the landmark itself; everything else keeps
+    // the shared day/night contract.
+    group.traverse(o=>{if(o.isLight&&o.userData.nightIntensity!==undefined)o.intensity=night?o.userData.nightIntensity:0;});
+    weather?.setNight(night);
   }
-  function animate(ms,shot={}){
+  function animate(ms,shot={},camera){
     const t=((ms%LOOP)+LOOP)%LOOP/LOOP;
     for(const item of animated){
       if(item.kind==='person'){
@@ -512,11 +541,16 @@ export function createWorld(id = 'cbd') {
         pos[o]=x;pos[o+1]=yy;pos[o+2]=z;pos[o+3]=x-.12;pos[o+4]=yy+.78;pos[o+5]=z+.07;
       }
       rainGeo.attributes.position.needsUpdate=true;
+      weather?.update(ms,camera);
     }
   }
   function dispose(){
+    weather?.dispose();
     group.traverse(o=>{if(o.geometry)o.geometry.dispose();});materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());
   }
   const focus=architecture.focus;
-  return {group,glow,noInk,focus,animate,setNight,dispose};
+  // The night grade is opt-in per world so CBD and the bridge keep their look.
+  const visual=isCBD?undefined:{kind:'city',rain:1,glowBoost:1.45,reflectGain:.62,
+    nightAmbient:'#6f84b0',nightAmbientIntensity:.68,nightSun:'#8aa2e2',nightSunIntensity:.42};
+  return {group,glow,noInk,focus,visual,animate,setNight,dispose,ready:Promise.all(pendingTextures)};
 }

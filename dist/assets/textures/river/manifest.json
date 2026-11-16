@@ -1,0 +1,65 @@
+{
+  "note": "river 场景纹理记录。v001 中 facade-riverfront / quay-paving / shopfront-band / skyline-north-night 由上一轮生成，提示词见同目录 prompts/*.txt；本清单记录本轮新增与改版。",
+  "assets": [
+    {
+      "name": "tower-concrete-v001.png",
+      "use": "夷陵大桥桥塔与桥墩的白色混凝土表面（river 专属）",
+      "model": "gpt-image-2.5-flare",
+      "quality": "medium",
+      "size": "1024x1536",
+      "mode": "images/edits",
+      "reference": "qa/ref-yichang/bridge-20.jpg",
+      "prompt_file": "prompts/tower-concrete-v001.txt",
+      "sha256": "52f2865bd171ceb719056f380bd06ce927765b5cf7e0bed9394d9067cf9bdefd",
+      "request_id": "req_b50671d4d7f24142998bf0212a653a82",
+      "usage": { "input_tokens": 1641, "output_tokens": 343, "total_tokens": 1984 },
+      "inspection": "5 道水平模板缝、对拉螺栓孔、竖向雨痕与轻微水渍；冷白偏灰，无明显接缝错位，可水平平铺；无文字与多余物体。",
+      "status": "accepted"
+    },
+    {
+      "name": "residential-facade-night-v001.png",
+      "use": "北岸沿江住宅楼河侧立面叠加（river 专属）",
+      "model": "gpt-image-2.5-flare",
+      "quality": "medium",
+      "size": "1024x1024",
+      "mode": "images/edits",
+      "reference": "qa/ref-yichang/avenue-19.jpg",
+      "prompt_file": "prompts/residential-facade-night-v001.txt",
+      "sha256": "ac9434403e96fb24050c115bddfb461bb483f24f47f5affb872a7bf9de933168",
+      "request_id": "req_0c23c2c5e681468c87922c6ba9256868",
+      "usage": { "input_tokens": 614, "output_tokens": 439, "total_tokens": 1053 },
+      "inspection": "6 层×6 开间，约四成窗亮、冷白为主少量暖光，阳台带晾衣杆与空调机位，底层有防盗网；无文字无广告；边缘窗格基本对齐，可镜像平铺。",
+      "status": "accepted"
+    },
+    {
+      "name": "revetment-masonry-v001.png",
+      "use": "北岸四级浆砌块石消落带斜坡（river 专属）",
+      "model": "gpt-image-2.5-flare",
+      "quality": "medium",
+      "size": "1024x1024",
+      "mode": "images/edits",
+      "reference": "qa/ref-yichang/bridge-23.jpg",
+      "prompt_file": "prompts/revetment-masonry-v001.txt",
+      "sha256": "faecb0e8c23bd24d474b704171bb3f0ca43ac50153918ecdc749328af57ebf1f",
+      "request_id": "req_9639bf8bb3564ae0ad0ce2d33ecd0558",
+      "usage": { "input_tokens": 788, "output_tokens": 439, "total_tokens": 1227 },
+      "inspection": "不规则湿块石、灰缝、苔痕与底部水线；石块尺度适合 1.5-3 m 映射；底部水线不垂直平铺，映射时取上部区域并水平重复。",
+      "status": "accepted"
+    },
+    {
+      "name": "residential-facade-night-v002.png",
+      "use": "北岸沿江住宅楼河侧立面叠加（river 专属，替换 v001：窗格更密、亮窗更少、贴图按 4×4 窗格对齐 13 m×12.8 m 分块）",
+      "model": "gpt-image-2.5-flare",
+      "quality": "medium",
+      "size": "1024x1024",
+      "mode": "images/edits",
+      "reference": "qa/ref-yichang/avenue-22.jpg",
+      "prompt_file": "prompts/residential-facade-night-v002.txt",
+      "sha256": "d1125d9812d2938b17bd0b4fb4001220a56b06bbac59575e5b177801ff842570",
+      "request_id": "req_e5c397ed6bde40dea4a606bbd852b500",
+      "usage": { "input_tokens": 625, "output_tokens": 439, "total_tokens": 1064 },
+      "inspection": "4×4 窗格、每格 4 户，亮窗约三成且以冷白为主，阳台与空调机位密度接近沿江大道实景；无文字、无明显接缝、可平铺。",
+      "status": "accepted"
+    }
+  ]
+}

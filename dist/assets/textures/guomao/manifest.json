@@ -1,0 +1,97 @@
+{
+  "generatedFor": "Guomao scene, rain-night storefront and signage textures",
+  "generatedOn": "2026-11-14",
+  "provider": "OpenAI Images API (official)",
+  "client": "openai-api-image skill, scripts/openai_image.py",
+  "model": "gpt-image-2.5-flare",
+  "usage": "7 successful images (one API request each); 3 earlier entrance attempts failed with a connection timeout and produced no file.",
+  "notes": "The player only shows these photographs at night. In the double-click entry (file://) the same images are embedded as data URLs by scripts/build-local.mjs, because Chrome refuses to upload a local PNG to WebGL.",
+  "referencePhotos": [
+    "https://news.cnphotos.net/images_2020/pic/liyalong2020031901-001.jpg — real portal on reopening day (curved pink granite, gilt characters, steps, temporary decorations)",
+    "https://news.cnphotos.net/images_2020/pic/liyalong2020031901-003.jpg — the bronze-framed glass doors seen from inside",
+    "https://news.cnphotos.net/images_2020/pic/liyalong2020031901-004.jpg — luxury cosmetics hall behind the entrance",
+    "http://photocdn.sohu.com/20160315/mp63419779_1457987405008_9.jpeg — straight-on front elevation of the same entrance"
+  ],
+  "textures": [
+    {
+      "file": "shop-convenience-v001.png",
+      "size": "1024x1280",
+      "sha256": "c9b6035e673bdc24a0ca4936d457e7654d7c074b2b45bed662509588b41d8ef8",
+      "prompt": "prompts/shop-convenience-v001.txt",
+      "usedAs": "Convenience-store interior behind the ground-floor glazing (17 bays alternate with the bakery, plus mirrored copies)",
+      "inspection": "Reads as a real late-night convenience store: clipped-in shelving, bottle rows, counter and customer, rain droplets and street reflections on the glass. Cool interior light against dark mullions matches the wet exterior."
+    },
+    {
+      "file": "shop-bakery-v001.png",
+      "size": "1024x1280",
+      "sha256": "53b750ef7ae9732bcd622ee2987cfc44f8ba72e37d3c212875e0214b46efbd24",
+      "prompt": "prompts/shop-bakery-v001.txt",
+      "usedAs": "Warm bakery / tea-shop interior for the remaining ground-floor bays",
+      "inspection": "Warm amber interior with counters and display cases, readable depth and glass reflections. Alternates cleanly with the cool convenience store."
+    },
+    {
+      "file": "entrance-wide-v001.png",
+      "size": "1536x544",
+      "sha256": "481e2d34857d1a2ab5d7b3feb290e748c4842f1ea4e50ce889b617b31d02ed3f",
+      "prompt": "prompts/entrance-wide-v001.txt",
+      "usedAs": "Retired: its hotel-lobby interior did not match the real Guomao entrance",
+      "inspection": "Five-leaf lobby elevation: warm ceiling, marble floor reflections, reception desk, stairs and planting. Technically clean, but the reception desk and planting read as a hotel lobby, not the Guomao ground floor."
+    },
+    {
+      "file": "entrance-wide-v004.png",
+      "size": "1536x544",
+      "sha256": "9e461ca056b31dd2fdc018c1ad99f945acc543522e67a87e0f3f1a1f2c717a21",
+      "prompt": "prompts/entrance-wide-v004.txt",
+      "references": "prompts/entrance-wide-v004.txt — three real photographs of the entrance, listed in referencePhotos above",
+      "usedAs": "Single 12 m entrance banner behind the five glass leaves",
+      "inspection": "Flat elevation of five equal bronze-framed glass leaves between banded pink-granite piers, with a level transom and parallel verticals. Behind the glass is the real Guomao luxury ground floor: lit cosmetics counters, cream stone floor and a curved white ceiling, not a hotel desk. Night interior light stays below clipping, wet reflections sit on the outer leaves, and no readable text, logo or temporary banner is baked in.",
+      "apiUsage": {
+        "requestId": "req_f4cbd43cc61f43919e9f8097425c2f22",
+        "size": "1536x544",
+        "quality": "high",
+        "inputTokens": 2753,
+        "inputImageTokens": 2208,
+        "inputTextTokens": 545,
+        "outputTokens": 579,
+        "totalTokens": 3332
+      }
+    },
+    {
+      "file": "vending-v001.png",
+      "size": "864x1536",
+      "sha256": "fb0a40aee89b331707bdaf8be18ba77de8ede508e26a6c833cb9bc785353ff85",
+      "prompt": "prompts/vending-v001.txt",
+      "usedAs": "Front panel of the two vending machines flanking the entrance",
+      "inspection": "Front-lit vending machine with can rows and a service panel; proportions are portrait, matching the 1:2 cabinet face."
+    },
+    {
+      "file": "billboard-v001.png",
+      "size": "1536x576",
+      "sha256": "b0ba923dfe27441d572b32b5cd06116e6283fe11d37b93b330f8077efac0473b",
+      "prompt": "prompts/billboard-v001.txt",
+      "usedAs": "Campaign artwork on the magenta media wall west of the entrance",
+      "inspection": "Backlit fashion campaign with a green cape on an orange field, framed by a dark billboard box. The warm field provides the pink/orange accent used by the wet-ground light pool."
+    },
+    {
+      "file": "crown-led-v001.png",
+      "size": "1536x1024",
+      "sha256": "da73e12262aba9cfc0d6a2579c0163d6b257ae3e67dd353efdaf1c3091348896",
+      "prompt": "prompts/crown-led-v001.txt",
+      "usedAs": "Dot-matrix fill for the cyan crown band and the texture base of the 国贸 crown letters",
+      "inspection": "A curved tower facade covered in cyan and white LED dots at night. Used only for its dot structure: the letter panel keeps white glyphs and multiplies 20% of this image over them so the sign reads as a lit LED crown."
+    },
+    {
+      "file": "entrance-v001.png",
+      "size": "864x1536",
+      "sha256": "4f10199d71df9aea4e3b8bdd8bb9ca665f5bc329ff3694f9d1f3988b14803067",
+      "prompt": "prompts/entrance-v001.txt",
+      "usedAs": "Retired: this single-door portrait was replaced by the 12 m entrance-wide banner",
+      "inspection": "Clean single-lobby view, but its portrait proportion repeated the doorway across the wide entrance. Kept as a version record; not referenced by the scene."
+    }
+  ],
+  "failedAttempts": [
+    "prompts/entrance-wide-v002.txt — API connection timeout, no file",
+    "prompts/entrance-wide-v002b.txt — API connection timeout, no file",
+    "prompts/entrance-wide-v003.txt — API connection timeout, no file (warm lobby without green planting)"
+  ]
+}

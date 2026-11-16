@@ -10,11 +10,12 @@ const SCENES = {
   cbd: { name: 'CBD 街角', location: 'CBD · 夷陵大道', title: '熟悉的街角，<br><em>换个角度。</em>', edition: 'VOL. 01', tagline: '让一幅街景，在眼前慢慢展开。' },
   guomao: { name: '国贸广场', location: '国贸 · 东山大道', title: '从一幅画，<br><em>走进这座城。</em>', edition: 'VOL. 02', tagline: '转过街角，看见城市的另一面。' },
   bridge: { name: '夷陵大桥', location: '夷陵长江大桥 · 一江两岸', title: '一桥飞架，<br><em>江城展开。</em>', edition: 'VOL. 03', tagline: '跟着镜头，穿过江上的光。' },
+  river: { name: '夷陵江景', location: '夷陵长江大桥 · 江北滨江', title: '一江灯火，<br><em>雨落宜昌。</em>', edition: 'VOL. 04', tagline: '十秒一镜，从城市高处落到湿江岸。' },
 };
 const initialScene=Object.hasOwn(SCENES,params.get('scene'))?params.get('scene'):'bridge';
 const state = {
   sceneId: initialScene,
-  night: params.has('mood') ? params.get('mood') === 'night' : initialScene==='bridge',
+  night: params.has('mood') ? params.get('mood') === 'night' : (initialScene==='bridge'||initialScene==='river'),
   playing: !reducedMotion,
   progress: 0.03,
   yaw: 0,
@@ -31,7 +32,8 @@ const state = {
 let stage, world;
 const worlds = new Map();
 const sceneMoods=new Map([[state.sceneId,state.night]]);
-const buildWorld=id=>id==='bridge'?createBridgeWorld():createWorld(id);
+const buildWorld=id=>id==='bridge'?createBridgeWorld():id==='river'?createBridgeWorld({variant:'river'}):createWorld(id);
+const loopOf=()=>world?.loop||LOOP;
 const canvas = $('gl');
 const app = $('app');
 const timeline = $('timeline');
@@ -67,27 +69,37 @@ function setPlaying(value) {
 function syncSceneText() {
   const data = SCENES[state.sceneId];
   const isBridge=state.sceneId==='bridge';
-  app.classList.toggle('bridge-scene',isBridge);
+  const isRiver=state.sceneId==='river';
+  const isSpan=isBridge||isRiver;
+  app.classList.toggle('bridge-scene',isSpan);
+  app.classList.toggle('vertical-scene',isRiver);
   $('scene-title').innerHTML = data.title;
   $('scene-location').textContent = data.location;
   $('scene-tagline').textContent = data.tagline;
   $('scene-edition').textContent = data.edition;
   $('scene-caption').textContent = data.name;
-  $('gl').setAttribute('aria-label',isBridge?'夷陵长江大桥与两岸的交互三维场景，可用下方镜头控件探索':'宜昌CBD与国贸的交互式三维插画场景，可用下方镜头控件探索');
+  $('gl').setAttribute('aria-label',isRiver?'宜昌夷陵长江大桥北岸滨江的雨夜三维场景，十秒一镜，从城市高处落到湿江岸':isBridge?'夷陵长江大桥与两岸的交互三维场景，可用下方镜头控件探索':'宜昌CBD与国贸的交互式三维插画场景，可用下方镜头控件探索');
   $('night-button').querySelector('span').textContent=isBridge?'夜景':'雨夜';
   $('night-button').setAttribute('aria-label',isBridge?'蓝调夜景':'雨夜');
-  document.querySelector('[data-view="deep"] span').textContent=isBridge?'推镜':'入景';
-  document.querySelector('[data-view="deep"]').setAttribute('aria-label',isBridge?'沿桥推镜，展开纵深':'展开立体街景');
-  document.querySelector('[data-view="deep"]').title=isBridge?'沿桥推镜':'展开立体街景';
-  document.querySelector('[data-view="corner"] span').textContent=isBridge?'全桥':'转角';
-  document.querySelector('[data-view="corner"]').setAttribute('aria-label',isBridge?'全桥与两岸视角':'从街角侧看');
-  document.querySelector('[data-view="corner"]').title=isBridge?'全桥与两岸':'从街角侧看';
-  $('explore-hint').lastElementChild.textContent=isBridge?'左右拖动 · 看一江两岸':'左右拖动 · 探索街角';
-  $('timeline-description').innerHTML=`一幅画<span class="timeline-arrow">→</span>${isBridge?'一江景':'一条街'}`;
-  const stops=isBridge?['平面定场','沿桥推镜','两岸展开','回到画中']:['长焦压平','空间展开','转角发现','回到画中'];
+  document.querySelector('[data-view="deep"] span').textContent=isRiver?'江岸':isBridge?'推镜':'入景';
+  document.querySelector('[data-view="deep"]').setAttribute('aria-label',isRiver?'落到滨江步道的人眼高度':'展开立体街景');
+  document.querySelector('[data-view="deep"]').title=isRiver?'落到江岸':isBridge?'沿桥推镜':'展开立体街景';
+  document.querySelector('[data-view="corner"] span').textContent=isRiver?'收束':isBridge?'全桥':'转角';
+  document.querySelector('[data-view="corner"]').setAttribute('aria-label',isRiver?'回到城市高处收束':'从街角侧看');
+  document.querySelector('[data-view="corner"]').title=isRiver?'回到城市高处':'从街角侧看';
+  $('explore-hint').lastElementChild.textContent=isRiver?'十秒一镜 · 雨夜江岸':isBridge?'左右拖动 · 看一江两岸':'左右拖动 · 探索街角';
+  $('timeline-description').innerHTML=isRiver
+    ?'城市高处<span class="timeline-arrow">→</span>湿江岸'
+    :`一幅画<span class="timeline-arrow">→</span>${isBridge?'一江景':'一条街'}`;
+  const stops=isRiver?['城市定场','落到江岸','桥塔竖构图','雨夜收束']
+    :isBridge?['平面定场','沿桥推镜','两岸展开','回到画中']
+    :state.sceneId==='guomao'?['高位定场','走入街面','穿过门廊','仰望塔冠']
+    :['长焦压平','空间展开','转角发现','回到画中'];
   document.querySelectorAll('.timeline-stops span').forEach((s,i)=>s.textContent=stops[i]);
-  $('unfold-button').querySelector('span').textContent=isBridge?'推入江景':'展开街景';
-  $('frame-mode').textContent=isBridge?'RIVER IN PERSPECTIVE':'ILLUSTRATED CITY';
+  $('unfold-button').querySelector('span').textContent=isRiver?'落到江岸':isBridge?'推入江景':'展开街景';
+  $('frame-mode').textContent=isRiver?'YILING RIVER · 9:16':isBridge?'RIVER IN PERSPECTIVE':'ILLUSTRATED CITY';
+  $('total-time').textContent=isRiver?'00:10':'00:24';
+  $('export-button').hidden=!isRiver;
   document.querySelectorAll('.scene-tab').forEach((button) => {
     const active = button.dataset.scene === state.sceneId;
     button.classList.toggle('active', active);
@@ -104,7 +116,7 @@ function setNight(value, notify = false) {
   state.night = Boolean(value);
   sceneMoods.set(state.sceneId,state.night);
   app.classList.toggle('night', state.night);
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', state.night ? (state.sceneId==='bridge'?'#11182d':'#18363d') : '#f5f2e9');
+  document.querySelector('meta[name="theme-color"]').setAttribute('content', state.night ? (state.sceneId==='bridge'?'#11182d':state.sceneId==='river'?'#0c1224':'#18363d') : '#f5f2e9');
   $('day-button').classList.toggle('active', !state.night);
   $('night-button').classList.toggle('active', state.night);
   $('day-button').setAttribute('aria-pressed', String(!state.night));
@@ -113,20 +125,25 @@ function setNight(value, notify = false) {
   stage?.setNight(state.night);
   state.dirty = true;
   updateUrl();
-  if (notify) toast(state.sceneId==='bridge'?(state.night?'桥灯亮起，江城倒映在水中。':'日光下，白塔连接一江两岸。'):(state.night ? '街灯亮起，雨夜里的宜昌。' : '日光落在熟悉的街角。'));
+  if (notify) toast(state.sceneId==='river'
+    ? (state.night?'雨落江面，桥塔与滨江灯火一起倒映。':'白昼的江面，三塔横过北岸。')
+    : state.sceneId==='bridge'
+    ? (state.night?'桥灯亮起，江城倒映在水中。':'日光下，白塔连接一江两岸。')
+    : (state.night ? '街灯亮起，雨夜里的宜昌。' : '日光落在熟悉的街角。'));
 }
 function updateUi(now, force = false) {
   if (!force && now - lastUiUpdate < 90) return;
   lastUiUpdate = now;
   timeline.value = String(Math.round(state.progress * 1000));
   timeline.style.setProperty('--progress', `${state.progress * 100}%`);
-  const seconds = Math.min(Math.floor(state.progress * LOOP / 1000), 24);
+  const loop = loopOf(), total = Math.round(loop / 1000);
+  const seconds = Math.min(Math.floor(state.progress * loop / 1000), total);
   $('current-time').textContent = `00:${String(seconds).padStart(2, '0')}`;
-  timeline.setAttribute('aria-valuetext', `${seconds}秒，共24秒`);
+  timeline.setAttribute('aria-valuetext', `${seconds}秒，共${total}秒`);
   const shot = sampleShot(state.progress, world?.focus);
   app.classList.toggle('camera-running', state.playing && state.progress > 0.13 && state.progress < 0.93);
   const active = shot.view || (Math.abs(shot.yaw) > 10 || Math.abs(state.yaw) > 10 ? 'corner' : shot.fov > 13 ? 'deep' : 'flat');
-  const labels = state.sceneId==='bridge'?{flat:'长焦成画',deep:'沿桥推镜',corner:'两岸展开'}:{ flat: '长焦成画', deep: '空间展开', corner: '转角发现' };
+  const labels = state.sceneId==='river'?{flat:'城市定场',deep:'湿江岸',corner:'回到城市'}:state.sceneId==='bridge'?{flat:'长焦成画',deep:'沿桥推镜',corner:'两岸展开'}:{ flat: '长焦成画', deep: '空间展开', corner: '转角发现' };
   $('shot-label').textContent = labels[active];
   document.querySelectorAll('.view-button[data-view]').forEach((button) => {
     const on = button.dataset.view === active;
@@ -138,7 +155,8 @@ function currentShot() {
   const shot = sampleShot(state.progress, world.focus);
   const yawLimit=shot.maxYaw??32;
   shot.yaw = (shot.yaw || 0) + clamp(state.yaw,-yawLimit,yawLimit);
-  shot.W *= state.zoom;
+  if (shot.free) shot.fov = clamp(shot.fov * state.zoom, 18, 110);
+  else shot.W *= state.zoom;
   return shot;
 }
 function frame(now) {
@@ -153,19 +171,20 @@ function frame(now) {
     state.progress = THREE.MathUtils.lerp(state.tween.from, state.tween.to, ease(t));
     if (t >= 1) state.tween = null;
   } else if (state.playing && !state.isScrubbing && !about.open) {
-    state.progress = (state.progress + dt / LOOP) % 1;
+    state.progress = (state.progress + dt / loopOf()) % 1;
   }
   // Keep an exact relationship between time, scene animation and the camera for reproducible frames.
   if (mustRender) {
-    stage.render(currentShot(), state.progress * LOOP);
+    stage.render(currentShot(), state.progress * loopOf());
     state.dirty = false;
   }
   updateUi(now);
 }
 function resize() {
   if (!stage) return;
-  const rect = $('viewport').getBoundingClientRect();
-  stage.resize(rect.width, rect.height);
+  const rect = canvas.getBoundingClientRect();
+  const fallback = $('viewport').getBoundingClientRect();
+  stage.resize(rect.width || fallback.width, rect.height || fallback.height);
   state.dirty = true;
   state.lastFrame = 0;
 }
@@ -179,7 +198,11 @@ function seek(progress) {
 }
 function view(name) {
   if (!state.ready) return;
-  const target = { flat: 0.03, deep: 0.25, corner: 0.47 }[name];
+  const target = state.sceneId === 'guomao'
+    ? { flat: 0.02, deep: 0.34, corner: 0.9 }[name]
+    : state.sceneId === 'river'
+    ? { flat: 0, deep: 0.55, corner: 0.94 }[name]
+    : { flat: 0.03, deep: 0.25, corner: 0.47 }[name];
   setPlaying(false);
   state.yaw = 0;
   state.zoom = 1;
@@ -198,6 +221,7 @@ async function switchScene(id) {
   let nextWorld;
   try {
     nextWorld = buildWorld(id);
+    await nextWorld.ready;
     state.sceneId = id;
     world = nextWorld;
     stage.setWorld(world);
@@ -206,8 +230,8 @@ async function switchScene(id) {
     state.zoom = 1;
     state.lastFrame = 0;
     syncSceneText();
-    setNight(sceneMoods.get(id)??(id==='bridge'));
-    stage.render(currentShot(), state.progress * LOOP);
+    setNight(sceneMoods.get(id)??(id==='bridge'||id==='river'));
+    stage.render(currentShot(), state.progress * loopOf());
     worlds.clear();
     worlds.set(id, world);
     previousWorld?.dispose?.();
@@ -243,7 +267,7 @@ async function capture() {
   if (!state.ready) return;
   $('capture-button').disabled = true;
   try {
-    stage.render(currentShot(), state.progress * LOOP);
+    stage.render(currentShot(), state.progress * loopOf());
     const data = stage.snapshot();
     if (!data || data === 'data:,') throw new Error('Empty screenshot');
     const link = document.createElement('a');
@@ -258,6 +282,37 @@ async function capture() {
     toast('当前浏览器无法保存画面，请使用系统截图。');
   } finally { $('capture-button').disabled = false; }
 }
+/* 9:16 delivery frame: render the preset at exactly 1080 x 1920, independent
+   of the on-screen viewport, then restore the interactive sizing. */
+async function exportVertical() {
+  if (!state.ready || state.sceneId !== 'river') return;
+  const button = $('export-button');
+  const wasPlaying = state.playing;
+  button.disabled = true;
+  setPlaying(false);
+  try {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    stage.resize(1080, 1920, true);
+    stage.render(currentShot(), state.progress * loopOf());
+    const data = stage.snapshot();
+    if (!data || data === 'data:,') throw new Error('Empty export frame');
+    const link = document.createElement('a');
+    link.download = `宜昌-夷陵江景-9x16-${String(Math.round(state.progress * 1000)).padStart(4, '0')}.png`;
+    link.href = data;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    toast('已导出 1080×1920 竖屏静帧。');
+  } catch (error) {
+    console.error('Vertical export failed', error);
+    toast('当前浏览器无法导出竖屏画面，请使用系统截图。');
+  } finally {
+    resize();
+    if (wasPlaying) setPlaying(true);
+    state.dirty = true;
+    button.disabled = false;
+  }
+}
 
 document.querySelectorAll('[data-scene]').forEach((button) => button.addEventListener('click', () => switchScene(button.dataset.scene)));
 document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => view(button.dataset.view)));
@@ -267,6 +322,7 @@ $('play-button').addEventListener('click', () => { setPlaying(!state.playing); m
 $('replay-button').addEventListener('click', () => { seek(0); setPlaying(true); app.classList.remove('interacted', 'immersive'); });
 $('unfold-button').addEventListener('click', () => { view('deep'); app.classList.add('immersive'); });
 $('capture-button').addEventListener('click', capture);
+$('export-button').addEventListener('click', exportVertical);
 $('about-button').addEventListener('click', openAbout);
 $('details-button').addEventListener('click', openAbout);
 $('close-about').addEventListener('click', closeAbout);
@@ -297,7 +353,7 @@ canvas.addEventListener('pointermove', (event) => {
   const dx = event.clientX - drag.x;
   if (Math.abs(dx) > 4) { drag.moved = true; setPlaying(false); markInteraction(); }
   if (drag.moved) {
-    const maxYaw=state.sceneId==='bridge'?(sampleShot(state.progress,world.focus).maxYaw??14):32;
+    const maxYaw=state.sceneId==='river'?0:state.sceneId==='bridge'?(sampleShot(state.progress,world.focus).maxYaw??14):32;
     state.yaw = clamp(drag.yaw - dx / Math.max(320, canvas.clientWidth) * 65, -maxYaw, maxYaw);
     state.dirty = true;
     updateUi(performance.now(), true);
@@ -340,8 +396,9 @@ canvas.addEventListener('webglcontextrestored', () => location.reload());
 window.render = (ms) => {
   if (!stage || !world) return;
   setPlaying(false);
-  state.progress = (((ms % LOOP) + LOOP) % LOOP) / LOOP;
-  stage.render(currentShot(), state.progress * LOOP);
+  const loop = loopOf();
+  state.progress = (((ms % loop) + loop) % loop) / loop;
+  stage.render(currentShot(), state.progress * loop);
   updateUi(performance.now(), true);
 };
 window.probe = (ms) => {
@@ -360,12 +417,13 @@ async function start() {
     await document.fonts.load('700 32px "Scene Sans"');
     await document.fonts.ready;
     world = buildWorld(state.sceneId);
+    await world.ready;
     worlds.set(state.sceneId, world);
     stage = createStage(canvas);
     stage.setWorld(world);
     resize();
     setNight(state.night);
-    stage.render(currentShot(), state.progress * LOOP);
+    stage.render(currentShot(), state.progress * loopOf());
     state.ready = true;
     state.lastFrame = 0;
     window.READY = true;

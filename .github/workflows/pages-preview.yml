@@ -1,0 +1,59 @@
+name: Yiling Bridge V7 Preview
+
+on:
+  push:
+    branches:
+      - codex/yiling-bridge-pier-v7
+    paths:
+      - "dist/**"
+      - "docs/**"
+      - ".github/workflows/pages-preview.yml"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: yiling-bridge-v7-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V7 branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check JavaScript
+        run: npm run check
+
+      - name: Verify water-depth regression
+        run: npm run verify:water
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload V7 site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy V7 preview
+        id: deployment
+        uses: actions/deploy-pages@v4

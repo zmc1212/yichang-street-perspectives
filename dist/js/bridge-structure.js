@@ -151,14 +151,49 @@ export function buildBridgeStructure(api) {
     g.setIndex([0,1,2,0,2,3]);g.computeVertexNormals();mesh(g,yellowMark);
   }
 
-  // Side-span auxiliary piers occur at 43.5 m and 82 m from each bank tower.
-  // Main-span split: 120 + 348 + 348 + 120; the auxiliary piers were absent
-  // from the first model and are very visible from the river.
-  for(const side of[-1,1])for(const distance of[391.5,430,510,570,630,705,780,855,935,1010]){
-    const x=side*distance,h=deckHeightAt(x),base=Math.abs(x)<468?3.5:7.8;
-    octagonalLoft(x,0,[[base,6.5,10,1.3],[base+1,6.5,10,1.3]],concreteJoint);
-    octagonalLoft(x,0,[[base+.8,4.6,7.2,.75],[h-3.5,3.5,6.4,.6]],concrete);
-    octagonalLoft(x,0,[[h-4.2,3.5,7,.55],[h-2.65,8.4,13.6,1.1]],concreteLight);
+  // Auxiliary supports are modelled as bridge piers, not floating blocks.
+  // The two supports in each 120 m outer span are kept distinct from the
+  // smaller approach-viaduct supports. Exact reinforcement and pile geometry
+  // are not exposed above water; visible dimensions are photographic estimates.
+  const pierJoint=material('#a8ada6');
+  const pierWaterline=material('#777f7b');
+  const bearingSteel=material('#596664');
+  function buildPier(x,kind='main'){
+    const h=deckHeightAt(x);
+    const main=kind==='main';
+    const shaftW=main?5.25:3.65,shaftD=main?7.8:5.7;
+    const capW=main?9.2:6.6,capD=main?14.8:9.4;
+    const baseW=main?8.8:5.8,baseD=main?16.2:10.8;
+    // Submerged/at-water foundation block and a chamfered splash-zone collar.
+    octagonalLoft(x,0,[[-2.2,baseW,baseD,2.8],[.15,baseW,baseD,2.8],[1.0,baseW-.5,baseD-.8,2.5]],concrete);
+    octagonalLoft(x,0,[[.12,baseW+.12,baseD+.12,2.85],[.34,baseW+.12,baseD+.12,2.85]],pierWaterline);
+    // The shaft tapers subtly toward the deck; it is no longer a uniform box.
+    octagonalLoft(x,0,[[.85,shaftW+.45,shaftD+.5,1.15],[3.4,shaftW,shaftD,1.0],
+      [h-6.2,shaftW-.65,shaftD-.8,.9],[h-4.5,shaftW-.65,shaftD-.8,.9]],concrete);
+    // Horizontal construction lifts and shallow formwork joints.
+    for(const y of[4.8,8.6,12.4,16.2,20.0]){
+      if(y>=h-7)continue;
+      const t=THREE.MathUtils.clamp((y-3.4)/(h-7.9),0,1);
+      const w=THREE.MathUtils.lerp(shaftW,shaftW-.65,t),d=THREE.MathUtils.lerp(shaftD,shaftD-.8,t);
+      octagonalLoft(x,0,[[y,w+.045,d+.045,.98],[y+.075,w+.045,d+.045,.98]],pierJoint);
+    }
+    // A broad pier cap / hammerhead spreads the box-girder reaction into the shaft.
+    octagonalLoft(x,0,[[h-5.0,capW-.5,capD-.8,1.45],[h-3.25,capW,capD,1.55],
+      [h-2.75,capW-.25,capD-.45,1.4]],concreteLight);
+    // Bearing plinths and dark elastomeric bearing pads remain visible from below.
+    for(const z of[-4.5,4.5]){
+      box(2.15,.62,2.35,x,h-2.35,z,concreteJoint);
+      box(1.35,.22,1.55,x,h-1.93,z,bearingSteel);
+    }
+    // Small edge chamfers and a pale arris line catch light without outlining
+    // the entire pier as a graphic shape.
+    for(const side of[-1,1]){
+      beam([x-side*(shaftW/2-.12),3.7,-shaftD*.43],[x-side*(shaftW/2-.12),h-5.1,-shaftD*.43],.055,.055,concreteLight);
+    }
+  }
+  for(const side of[-1,1]){
+    for(const distance of[391.5,430])buildPier(side*distance,'main');
+    for(const distance of[510,570,630,705,780,855,935,1010])buildPier(side*distance,'approach');
   }
 
   const towerWhite=material('#e5e6df',{emissive:'#e9c58a',emissiveIntensity:0});
@@ -178,16 +213,41 @@ export function buildBridgeStructure(api) {
   const shapeDepth = THREE.MathUtils.lerp(6.5, 9.2, towerBulk);
 
   function tower(x,topY,isMiddle){
-    const H=topY-DECK,capW=isMiddle?23.6:19.6,capD=isMiddle?34:30;
-    octagonalLoft(x,0,[[-.6,capW+2,capD+2,4.0],[.65,capW+2,capD+2,4.0]],material('#765a4c'));
-    octagonalLoft(x,0,[[.6,capW,capD,3.7],[2.45,capW,capD,3.7]],material('#a36150'));
-    octagonalLoft(x,0,[[2.45,capW-1.0,capD-1.0,3.6],[3.1,capW-1.0,capD-1.0,3.6]],concreteLight);
-    octagonalLoft(x,0,[[3.1,capW-4.4,capD-5.4,3.5],[DECK-5.4,capW-6.1,capD-8.8,3.1]],concreteLight);
-    octagonalLoft(x,0,[[DECK-5.4,capW-6.1,capD-8.8,3.1],[DECK-2.5,14.8,30,2.0]],concrete);
-    // Horizontal panel joints give the tall white pier its concrete scale.
-    for(const y of[6.4,10.2,14,17.8])if(y<DECK-5.5){
-      const f=(y-3.1)/(DECK-8.5),w=THREE.MathUtils.lerp(capW-4.4,capW-6.1,f),d=THREE.MathUtils.lerp(capD-5.4,capD-8.8,f);
-      octagonalLoft(x,0,[[y,w+.015,d+.015,3.35],[y+.045,w+.015,d+.015,3.35]],concreteJoint);
+    const H=topY-DECK;
+    // Main tower pier / pylon footing: one continuous tapered concrete shaft.
+    // The earlier stacked red-brown plinths read as a decorative pedestal in
+    // close views. Replace them with a broad submerged pile-cap, a chamfered
+    // tapering pier body and a compact pier-head transition into the Y tower.
+    const pierConcrete=material('#aeb6b3');
+    const pierFace=material('#c3c9c3');
+    const pierJoint=material('#89938f');
+    const pierWet=material('#687873');
+    const capW=isMiddle?22.8:19.8,capD=isMiddle?32.5:29.0;
+    const shaftW=isMiddle?15.8:14.2,shaftD=isMiddle?23.8:21.8;
+    // Broad octagonal pile-cap is mostly below the river surface; only its
+    // upper chamfer and the waterline collar should read above the water.
+    octagonalLoft(x,0,[[-5.2,capW+3.0,capD+3.0,4.2],[-1.8,capW+3.0,capD+3.0,4.2],
+      [.15,capW+1.8,capD+1.8,3.8],[1.0,capW,capD,3.4]],pierConcrete);
+    octagonalLoft(x,0,[[-.12,capW+1.95,capD+1.95,3.85],[.12,capW+1.95,capD+1.95,3.85]],pierWet);
+    // Tapered reinforced-concrete pier stem, with broad faces and clipped corners.
+    octagonalLoft(x,0,[[.85,shaftW+1.4,shaftD+1.6,2.0],[3.2,shaftW,shaftD,1.8],
+      [DECK-7.0,shaftW-.9,shaftD-1.2,1.55],[DECK-4.0,shaftW-.9,shaftD-1.2,1.55]],pierConcrete);
+    // A shallow hammerhead / pier cap receives the pylon legs. Keep the cap
+    // concrete-coloured and integrated; no ornamental red stacked rings.
+    octagonalLoft(x,0,[[DECK-4.2,shaftW+1.0,shaftD+1.2,1.9],
+      [DECK-2.65,shaftW+1.0,shaftD+1.2,1.9],[DECK-1.45,shaftW-.2,shaftD-.3,1.6]],pierFace);
+    // Restrained horizontal construction lifts on the visible stem.
+    for(const y of[4.8,8.6,12.4,16.2,20.0,23.8]){
+      if(y>=DECK-7.3)continue;
+      const t=THREE.MathUtils.clamp((y-3.2)/(DECK-10.2),0,1);
+      const w=THREE.MathUtils.lerp(shaftW,shaftW-.9,t),d=THREE.MathUtils.lerp(shaftD,shaftD-1.2,t);
+      octagonalLoft(x,0,[[y,w+.045,d+.045,1.58],[y+.065,w+.045,d+.045,1.58]],pierJoint);
+    }
+    // Vertical arrises subtly articulate the large concrete faces without
+    // creating bolt-like dots or a graphic outline.
+    for(const face of[-1,1])for(const side of[-1,1]){
+      const z=side*(shaftD*.43);
+      beam([x+face*(shaftW*.46),3.6,z],[x+face*(shaftW*.46),DECK-4.4,z],.045,.045,pierFace);
     }
 
     // One continuous Y silhouette: long lower limbs, rounded shoulders and a
